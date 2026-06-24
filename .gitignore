@@ -1,0 +1,35 @@
+# ---------- Secrets ----------
+.env
+.env.*
+
+# ---------- Node (backend) ----------
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# ---------- Flutter / Dart (admin, reception) ----------
+.dart_tool/
+.packages
+build/
+.flutter-plugins
+.flutter-plugins-dependencies
+.pub-cache/
+.pub/
+*.iml
+
+# Flutter Windows (reception) build output
+**/windows/flutter/ephemeral/
+
+# Flutter Android (admin)
+**/android/.gradle/
+**/android/local.properties
+**/android/key.properties
+
+# ---------- IDE / OS ----------
+.idea/
+.vscode/
+*.swp
+.DS_Store
+Thumbs.db

@@ -1,0 +1,35 @@
+name: aarvy_admin
+description: "Aarvy admin — the hospital management Android dashboard."
+publish_to: 'none'
+version: 1.0.0+1
+
+environment:
+  sdk: ^3.11.5
+
+dependencies:
+  flutter:
+    sdk: flutter
+
+  cupertino_icons: ^1.0.8
+
+  # State & formatting (shared with the patient + reception apps)
+  provider: ^6.1.5+1
+  google_fonts: ^8.1.0
+  intl: ^0.20.2
+
+  # Networking
+  dio: ^5.7.0
+
+  # Token & settings persistence
+  shared_preferences: ^2.5.5
+
+  # Charts for historical trends
+  fl_chart: ^0.69.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^6.0.0
+
+flutter:
+  uses-material-design: true
