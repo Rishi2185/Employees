@@ -20,7 +20,7 @@ class SettingsStore {
   static const _kHospitalName = 'hospitalName';
   static const _kAutoEodPrompt = 'autoEodPrompt';
 
-  static const String defaultBaseUrl = 'http://localhost:4000/api';
+  static const String defaultBaseUrl = 'http://3.110.77.2:4000/api';
   static const int defaultRetentionDays = 365;
 
   String get baseUrl => _prefs.getString(_kBaseUrl) ?? defaultBaseUrl;

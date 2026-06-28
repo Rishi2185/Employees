@@ -10,6 +10,7 @@ import '../widgets/avatar.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/stat_card.dart';
+import '../widgets/animated_counter.dart';
 import '../state/live_stats_provider.dart';
 
 /// The live overview: today's counts (from the Appointments store) + the
@@ -30,6 +31,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
     });
   }
 
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return 'Good morning';
+    if (hour < 17) return 'Good afternoon';
+    return 'Good evening';
+  }
+
   @override
   Widget build(BuildContext context) {
     final live = context.watch<LiveStatsProvider>();
@@ -44,90 +52,179 @@ class _DashboardScreenState extends State<DashboardScreen> {
       );
     }
 
-    return RefreshIndicator(
-      onRefresh: () => live.load(),
-      child: ListView(
-        padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
-        children: [
-          _header(context, live),
-          const SizedBox(height: 20),
-          _tiles(live),
-          const SizedBox(height: 24),
-          Row(
-            children: [
-              Text('Doctor load — today',
-                  style: Theme.of(context)
-                      .textTheme
-                      .titleLarge
-                      ?.copyWith(fontSize: 18)),
-              const Spacer(),
-              if (live.loading)
-                const SizedBox(
-                    width: 16,
-                    height: 16,
-                    child: CircularProgressIndicator(strokeWidth: 2)),
-            ],
-          ),
-          const SizedBox(height: 14),
-          _doctorLoad(live),
-        ],
+    return Scaffold(
+      backgroundColor: AppColors.scaffold,
+      body: RefreshIndicator(
+        onRefresh: () => live.load(),
+        color: AppColors.primary,
+        backgroundColor: AppColors.white,
+        child: ListView(
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
+          children: [
+            // Greeting row
+            FadeIn(
+              delay: const Duration(milliseconds: 50),
+              offsetY: -10,
+              child: Row(
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '${_getGreeting()}, Admin',
+                        style: const TextStyle(
+                          fontSize: 22,
+                          fontWeight: FontWeight.w800,
+                          color: AppColors.textPrimary,
+                          letterSpacing: -0.5,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        live.dayKey == null
+                            ? 'Hospital Live Feed'
+                            : 'Today · ${Fmt.longDate(DayKey.parse(live.dayKey!))}',
+                        style: const TextStyle(
+                          color: AppColors.textSecondary,
+                          fontSize: 13,
+                          fontWeight: FontWeight.w500,
+                        ),
+                      ),
+                    ],
+                  ),
+                  const Spacer(),
+                  if (live.loading)
+                    const SizedBox(
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2.2),
+                    )
+                  else
+                    IconButton.filledTonal(
+                      onPressed: () => live.load(),
+                      icon: const Icon(Icons.refresh_rounded, size: 18),
+                    ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 18),
+
+            // Header Hero Banner with gradients and animated counters
+            FadeIn(
+              delay: const Duration(milliseconds: 100),
+              scaleFrom: 0.96,
+              child: Container(
+                padding: const EdgeInsets.symmetric(vertical: 20, horizontal: 16),
+                decoration: BoxDecoration(
+                  gradient: AppColors.headerGradient,
+                  borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+                  boxShadow: [
+                    BoxShadow(
+                      color: AppColors.primary.withValues(alpha: 0.20),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
+                    ),
+                  ],
+                ),
+                child: Row(
+                  children: [
+                    Expanded(
+                      child: _headerStat(
+                        'Attended',
+                        live.stats?.attended ?? 0,
+                        Icons.check_circle_outline_rounded,
+                        const Color(0xFF5CC08A),
+                      ),
+                    ),
+                    Container(width: 1, height: 44, color: Colors.white24),
+                    Expanded(
+                      child: _headerStat(
+                        'Remaining',
+                        live.stats?.remaining ?? 0,
+                        Icons.hourglass_empty_rounded,
+                        const Color(0xFFF5A623),
+                      ),
+                    ),
+                    Container(width: 1, height: 44, color: Colors.white24),
+                    Expanded(
+                      child: _headerStat(
+                        'Upcoming',
+                        live.futureUpcoming,
+                        Icons.date_range_rounded,
+                        const Color(0xFF3B82F6),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+            const SizedBox(height: 20),
+
+            // Grid cards
+            _tiles(live),
+            const SizedBox(height: 28),
+
+            // Section: Doctor load
+            FadeIn(
+              delay: const Duration(milliseconds: 250),
+              offsetY: 15,
+              child: Row(
+                children: [
+                  const Icon(Icons.analytics_outlined,
+                      size: 20, color: AppColors.primary),
+                  const SizedBox(width: 8),
+                  Text(
+                    'Doctor load — today',
+                    style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                          fontSize: 17.5,
+                          fontWeight: FontWeight.w800,
+                          letterSpacing: -0.3,
+                        ),
+                  ),
+                ],
+              ),
+            ),
+            const SizedBox(height: 12),
+            FadeIn(
+              delay: const Duration(milliseconds: 300),
+              scaleFrom: 0.98,
+              child: _doctorLoad(live),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _header(BuildContext context, LiveStatsProvider live) {
-    final dayKey = live.dayKey;
-    final subtitle = dayKey == null
-        ? 'Live activity across the hospital'
-        : 'Today · ${Fmt.longDate(DayKey.parse(dayKey))}';
+  Widget _headerStat(String label, int value, IconData icon, Color iconColor) {
     return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(subtitle,
-            style:
-                const TextStyle(color: AppColors.textSecondary, fontSize: 13.5)),
-        const SizedBox(height: 12),
         Container(
-          padding: const EdgeInsets.all(18),
+          padding: const EdgeInsets.all(6),
           decoration: BoxDecoration(
-            gradient: AppColors.headerGradient,
-            borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-            boxShadow: AppColors.softShadow,
+            color: Colors.white.withValues(alpha: 0.1),
+            shape: BoxShape.circle,
           ),
-          child: Row(
-            children: [
-              Expanded(
-                child: _headerStat('Attended', '${live.stats?.attended ?? 0}',
-                    Icons.task_alt_rounded),
-              ),
-              Container(width: 1, height: 42, color: Colors.white24),
-              Expanded(
-                child: _headerStat('Remaining', '${live.stats?.remaining ?? 0}',
-                    Icons.timelapse_rounded),
-              ),
-              Container(width: 1, height: 42, color: Colors.white24),
-              Expanded(
-                child: _headerStat(
-                    'Upcoming', '${live.futureUpcoming}', Icons.event_rounded),
-              ),
-            ],
+          child: Icon(icon, color: iconColor, size: 18),
+        ),
+        const SizedBox(height: 6),
+        AnimatedCounter(
+          value: value,
+          style: const TextStyle(
+            color: Colors.white,
+            fontSize: 26,
+            fontWeight: FontWeight.w800,
+            letterSpacing: -0.5,
           ),
         ),
-      ],
-    );
-  }
-
-  Widget _headerStat(String label, String value, IconData icon) {
-    return Column(
-      children: [
-        Icon(icon, color: Colors.white, size: 22),
-        const SizedBox(height: 8),
-        Text(value,
-            style: const TextStyle(
-                color: Colors.white, fontSize: 24, fontWeight: FontWeight.w700)),
-        Text(label,
-            style: TextStyle(
-                color: Colors.white.withValues(alpha: 0.85), fontSize: 12.5)),
+        Text(
+          label,
+          style: TextStyle(
+            color: Colors.white.withValues(alpha: 0.75),
+            fontSize: 12,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
       ],
     );
   }
@@ -136,9 +233,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final t = live.today;
     final tiles = [
       StatCard(
-          label: "Today's Appointments",
+          label: "Today's Appts",
           value: '${t.todaysAppointments}',
-          icon: Icons.event_available_rounded,
+          icon: Icons.event_note_rounded,
           accent: AppColors.info),
       StatCard(
           label: 'Completed',
@@ -148,7 +245,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
       StatCard(
           label: 'Pending',
           value: '${t.pending}',
-          icon: Icons.pending_actions_rounded,
+          icon: Icons.pending_rounded,
           accent: AppColors.warning),
       StatCard(
           label: 'Cancelled',
@@ -156,16 +253,21 @@ class _DashboardScreenState extends State<DashboardScreen> {
           icon: Icons.cancel_rounded,
           accent: AppColors.danger),
     ];
+    final isWide = MediaQuery.of(context).size.width > 600;
     return GridView.count(
-      crossAxisCount: 2,
+      crossAxisCount: isWide ? 4 : 2,
       shrinkWrap: true,
       physics: const NeverScrollableScrollPhysics(),
       mainAxisSpacing: 14,
       crossAxisSpacing: 14,
-      childAspectRatio: 1.5,
+      childAspectRatio: isWide ? 1.35 : 1.30,
       children: [
         for (var i = 0; i < tiles.length; i++)
-          FadeIn(delay: Duration(milliseconds: i * 60), child: tiles[i]),
+          FadeIn(
+            delay: Duration(milliseconds: 120 + i * 50),
+            scaleFrom: 0.95,
+            child: tiles[i],
+          ),
       ],
     );
   }
@@ -174,15 +276,22 @@ class _DashboardScreenState extends State<DashboardScreen> {
     final list = live.byLoad;
     if (list.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(AppTheme.radiusLg),
           border: Border.all(color: AppColors.border),
+          boxShadow: AppColors.cardShadow,
         ),
         child: Center(
-          child: Text(live.loading ? 'Loading…' : 'No appointments yet today.',
-              style: const TextStyle(color: AppColors.textSecondary)),
+          child: Text(
+            live.loading ? 'Fetching load stats…' : 'No appointments scheduled today.',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+              fontSize: 14,
+            ),
+          ),
         ),
       );
     }
@@ -191,6 +300,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
         color: AppColors.card,
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.cardShadow,
       ),
       child: Column(
         children: [
@@ -211,52 +321,76 @@ class _DoctorLoadRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
       child: Row(
         children: [
-          Avatar(name: stat.doctorName, size: 40),
-          const SizedBox(width: 12),
+          Avatar(name: stat.doctorName, size: 42),
+          const SizedBox(width: 14),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text(stat.doctorName,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 14, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 6),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: stat.progress,
-                    minHeight: 6,
-                    backgroundColor: AppColors.mint,
-                    valueColor:
-                        const AlwaysStoppedAnimation(AppColors.primary),
+                Text(
+                  stat.doctorName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(
+                    fontSize: 14.5,
+                    fontWeight: FontWeight.w700,
+                    color: AppColors.textPrimary,
                   ),
+                ),
+                const SizedBox(height: 6),
+                // Smooth Tween animation for progress bar
+                TweenAnimationBuilder<double>(
+                  tween: Tween<double>(begin: 0.0, end: stat.progress),
+                  duration: const Duration(milliseconds: 900),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, val, _) {
+                    return ClipRRect(
+                      borderRadius: BorderRadius.circular(6),
+                      child: LinearProgressIndicator(
+                        value: val.isNaN ? 0.0 : val,
+                        minHeight: 6,
+                        backgroundColor: AppColors.mint,
+                        valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                      ),
+                    );
+                  },
                 ),
                 const SizedBox(height: 4),
                 Text(
                   '${stat.completed} done · ${stat.pending} pending'
                   '${stat.cancelled > 0 ? ' · ${stat.cancelled} cancelled' : ''}',
                   style: const TextStyle(
-                      fontSize: 11.5, color: AppColors.textTertiary),
+                    fontSize: 12,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.textSecondary,
+                  ),
                 ),
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          const SizedBox(width: 16),
           Column(
+            mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text('${stat.total}',
-                  style: const TextStyle(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.primary)),
-              const Text('total',
-                  style:
-                      TextStyle(fontSize: 11, color: AppColors.textTertiary)),
+              AnimatedCounter(
+                value: stat.total,
+                style: const TextStyle(
+                  fontSize: 19,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.primary,
+                ),
+              ),
+              const Text(
+                'total',
+                style: TextStyle(
+                  fontSize: 11,
+                  fontWeight: FontWeight.w600,
+                  color: AppColors.textTertiary,
+                ),
+              ),
             ],
           ),
         ],

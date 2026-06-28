@@ -72,7 +72,7 @@ class DoctorsProvider extends ChangeNotifier {
     try {
       final results = await Future.wait([
         _services.doctors
-            .list(includeInactive: _includeInactive, limit: 200, sort: 'relevance'),
+            .list(includeInactive: _includeInactive, limit: 100, sort: 'relevance'),
         if (_specialties.isEmpty) _services.meta.specialties(),
       ]);
       final page = results[0] as Paged<Doctor>;

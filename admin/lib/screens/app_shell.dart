@@ -8,9 +8,8 @@ import 'dashboard_screen.dart';
 import 'doctors_screen.dart';
 import 'trends_screen.dart';
 
-/// The authenticated admin frame: a bottom navigation bar across the three
-/// sections (Live dashboard, Trends, Doctors), with a shared app bar showing
-/// the connectivity badge + sign-out.
+/// The authenticated admin frame: features smooth slide-and-fade page transitions,
+/// a custom themed app bar, a pulsing connectivity dot, and a refined bottom navigation bar.
 class AppShell extends StatefulWidget {
   const AppShell({super.key});
 
@@ -20,20 +19,23 @@ class AppShell extends StatefulWidget {
 
 class _AppShellState extends State<AppShell> {
   int _index = 0;
+  late final PageController _pageController = PageController(initialPage: 0);
 
   static const _titles = ['Live overview', 'Trends', 'Doctors'];
 
-  Widget _page(int i) {
-    switch (i) {
-      case 0:
-        return const DashboardScreen();
-      case 1:
-        return const TrendsScreen();
-      case 2:
-        return const DoctorsScreen();
-      default:
-        return const DashboardScreen();
-    }
+  @override
+  void dispose() {
+    _pageController.dispose();
+    super.dispose();
+  }
+
+  void _onDestinationSelected(int i) {
+    setState(() => _index = i);
+    _pageController.animateToPage(
+      i,
+      duration: const Duration(milliseconds: 300),
+      curve: Curves.easeOutCubic,
+    );
   }
 
   @override
@@ -41,79 +43,188 @@ class _AppShellState extends State<AppShell> {
     return Scaffold(
       appBar: AppBar(
         titleSpacing: 20,
+        backgroundColor: AppColors.white,
         title: Row(
           children: [
             Container(
-              width: 32,
-              height: 32,
+              width: 34,
+              height: 34,
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 gradient: AppColors.primaryGradient,
-                borderRadius: BorderRadius.circular(9),
+                borderRadius: BorderRadius.circular(10),
+                boxShadow: [
+                  BoxShadow(
+                    color: AppColors.primary.withValues(alpha: 0.15),
+                    blurRadius: 10,
+                    offset: const Offset(0, 4),
+                  ),
+                ],
               ),
               child: const Icon(Icons.local_hospital_rounded,
-                  color: Colors.white, size: 18),
+                  color: Colors.white, size: 19),
             ),
-            const SizedBox(width: 10),
-            Text(_titles[_index]),
+            const SizedBox(width: 12),
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 250),
+              transitionBuilder: (child, anim) => FadeTransition(
+                opacity: anim,
+                child: SlideTransition(
+                  position: Tween<Offset>(
+                    begin: const Offset(0, -0.15),
+                    end: Offset.zero,
+                  ).animate(anim),
+                  child: child,
+                ),
+              ),
+              child: Text(
+                _titles[_index],
+                key: ValueKey(_titles[_index]),
+                style: const TextStyle(
+                  fontWeight: FontWeight.w800,
+                  fontSize: 19,
+                  letterSpacing: -0.3,
+                ),
+              ),
+            ),
           ],
         ),
         actions: const [
           _ConnectivityDot(),
+          SizedBox(width: 14),
           _SignOutButton(),
-          SizedBox(width: 8),
+          SizedBox(width: 16),
         ],
       ),
-      body: _page(_index),
-      bottomNavigationBar: NavigationBar(
-        selectedIndex: _index,
-        onDestinationSelected: (i) => setState(() => _index = i),
-        destinations: const [
-          NavigationDestination(
-            icon: Icon(Icons.insights_outlined),
-            selectedIcon: Icon(Icons.insights_rounded),
-            label: 'Live',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.show_chart_outlined),
-            selectedIcon: Icon(Icons.show_chart_rounded),
-            label: 'Trends',
-          ),
-          NavigationDestination(
-            icon: Icon(Icons.badge_outlined),
-            selectedIcon: Icon(Icons.badge_rounded),
-            label: 'Doctors',
-          ),
+      body: PageView(
+        controller: _pageController,
+        onPageChanged: (i) => setState(() => _index = i),
+        physics: const NeverScrollableScrollPhysics(), // tab navigation only
+        children: const [
+          DashboardScreen(),
+          TrendsScreen(),
+          DoctorsScreen(),
         ],
+      ),
+      bottomNavigationBar: Container(
+        decoration: BoxDecoration(
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.03),
+              blurRadius: 16,
+              offset: const Offset(0, -4),
+            ),
+          ],
+        ),
+        child: NavigationBar(
+          selectedIndex: _index,
+          onDestinationSelected: _onDestinationSelected,
+          destinations: const [
+            NavigationDestination(
+              icon: Icon(Icons.insights_outlined),
+              selectedIcon: Icon(Icons.insights_rounded),
+              label: 'Live',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.show_chart_outlined),
+              selectedIcon: Icon(Icons.show_chart_rounded),
+              label: 'Trends',
+            ),
+            NavigationDestination(
+              icon: Icon(Icons.badge_outlined),
+              selectedIcon: Icon(Icons.badge_rounded),
+              label: 'Doctors',
+            ),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _ConnectivityDot extends StatelessWidget {
+class _ConnectivityDot extends StatefulWidget {
   const _ConnectivityDot();
+
+  @override
+  State<_ConnectivityDot> createState() => _ConnectivityDotState();
+}
+
+class _ConnectivityDotState extends State<_ConnectivityDot>
+    with SingleTickerProviderStateMixin {
+  late final AnimationController _pulseController = AnimationController(
+    vsync: this,
+    duration: const Duration(milliseconds: 1600),
+  )..repeat();
+
+  @override
+  void dispose() {
+    _pulseController.dispose();
+    super.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
     final online = context.watch<ConnectivityProvider>().online;
     final color = online ? AppColors.success : AppColors.warning;
-    return Padding(
-      padding: const EdgeInsets.only(right: 4),
-      child: Tooltip(
-        message: online ? 'Cloud connected' : 'Offline',
+
+    return Tooltip(
+      message: online ? 'Cloud connected' : 'Offline mode',
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.08),
+          borderRadius: BorderRadius.circular(20),
+          border: Border.all(color: color.withValues(alpha: 0.15)),
+        ),
         child: Row(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            Container(
-              width: 9,
-              height: 9,
-              decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+            Stack(
+              alignment: Alignment.center,
+              children: [
+                ScaleTransition(
+                  scale: Tween<double>(begin: 0.8, end: 2.2).animate(
+                    CurvedAnimation(
+                      parent: _pulseController,
+                      curve: Curves.easeOut,
+                    ),
+                  ),
+                  child: FadeTransition(
+                    opacity: Tween<double>(begin: 0.6, end: 0.0).animate(
+                      CurvedAnimation(
+                        parent: _pulseController,
+                        curve: Curves.easeOut,
+                      ),
+                    ),
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: color,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                  ),
+                ),
+                Container(
+                  width: 8,
+                  height: 8,
+                  decoration: BoxDecoration(
+                    color: color,
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ],
             ),
-            const SizedBox(width: 6),
-            Text(online ? 'Online' : 'Offline',
-                style: TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w600,
-                    color: color)),
+            const SizedBox(width: 8),
+            Text(
+              online ? 'Online' : 'Offline',
+              style: TextStyle(
+                fontSize: 12,
+                fontWeight: FontWeight.w700,
+                color: color,
+              ),
+            ),
           ],
         ),
       ),
@@ -126,29 +237,43 @@ class _SignOutButton extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return IconButton(
-      tooltip: 'Sign out',
-      icon: const Icon(Icons.logout_rounded, size: 20),
-      onPressed: () async {
-        final confirm = await showDialog<bool>(
-          context: context,
-          builder: (ctx) => AlertDialog(
-            title: const Text('Sign out?'),
-            content: const Text('You’ll need to sign in again to manage the hospital.'),
-            actions: [
-              TextButton(
+    return Container(
+      decoration: BoxDecoration(
+        color: AppColors.scaffold,
+        shape: BoxShape.circle,
+        border: Border.all(color: AppColors.border),
+      ),
+      child: IconButton(
+        tooltip: 'Sign out',
+        icon: const Icon(Icons.logout_rounded, size: 18, color: AppColors.textSecondary),
+        onPressed: () async {
+          final confirm = await showDialog<bool>(
+            context: context,
+            builder: (ctx) => AlertDialog(
+              title: const Text('Sign out?'),
+              content: const Text(
+                  'You will need to sign in again to manage the hospital dashboard.'),
+              actions: [
+                TextButton(
                   onPressed: () => Navigator.pop(ctx, false),
-                  child: const Text('Cancel')),
-              FilledButton(
+                  child: const Text('Cancel'),
+                ),
+                FilledButton(
+                  style: FilledButton.styleFrom(
+                    backgroundColor: AppColors.danger,
+                    foregroundColor: AppColors.white,
+                  ),
                   onPressed: () => Navigator.pop(ctx, true),
-                  child: const Text('Sign out')),
-            ],
-          ),
-        );
-        if (confirm == true && context.mounted) {
-          context.read<AuthProvider>().logout();
-        }
-      },
+                  child: const Text('Sign out'),
+                ),
+              ],
+            ),
+          );
+          if (confirm == true && context.mounted) {
+            context.read<AuthProvider>().logout();
+          }
+        },
+      ),
     );
   }
 }

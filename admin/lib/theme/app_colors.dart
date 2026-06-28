@@ -46,6 +46,20 @@ class AppColors {
   static const Color accentTeal = Color(0xFF2BB3A3);
   static const Color accentRed = Color(0xFFE5615F);
 
+  // ---- Glassmorphism ----
+  static const Color glassWhite = Color(0x80FFFFFF); // 50% white
+  static const Color glassBorder = Color(0x33FFFFFF); // 20% white
+  static const Color glassDark = Color(0x26000000); // 15% black
+  static const Color glassGreen = Color(0x1A2E7D5B); // 10% primary
+
+  // ---- Shimmer / pulse ----
+  static const Color shimmerBase = Color(0xFFE8F5E9);
+  static const Color shimmerHighlight = Color(0xFFF1F9F3);
+
+  // ---- Hover / press ----
+  static const Color hoverOverlay = Color(0x0A2E7D5B); // 4% primary
+  static const Color pressOverlay = Color(0x142E7D5B); // 8% primary
+
   // ---- Gradients ----
   static const LinearGradient primaryGradient = LinearGradient(
     begin: Alignment.topLeft,
@@ -63,6 +77,33 @@ class AppColors {
     begin: Alignment.topCenter,
     end: Alignment.bottomCenter,
     colors: [Color(0xFFF1F9F3), Color(0xFFFFFFFF)],
+  );
+
+  /// Rich multi-stop gradient for login backgrounds.
+  static const LinearGradient loginGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [
+      Color(0xFF1F5C42),
+      Color(0xFF2E7D5B),
+      Color(0xFF34A853),
+      Color(0xFF2E7D5B),
+    ],
+    stops: [0.0, 0.35, 0.7, 1.0],
+  );
+
+  /// Subtle card glow: used behind stat cards for depth.
+  static const LinearGradient cardGlowGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0x0834A853), Color(0x002E7D5B)],
+  );
+
+  /// Deep dark gradient for terminal/log panels.
+  static const LinearGradient terminalGradient = LinearGradient(
+    begin: Alignment.topLeft,
+    end: Alignment.bottomRight,
+    colors: [Color(0xFF0D1F16), Color(0xFF132B1E)],
   );
 
   // ---- Shadows ----
@@ -87,6 +128,21 @@ class AppColors {
           color: const Color(0xFF2E7D5B).withValues(alpha: 0.18),
           blurRadius: 24,
           offset: const Offset(0, 10),
+        ),
+      ];
+
+  /// Hover glow for interactive cards.
+  static List<BoxShadow> get hoverGlow => [
+        BoxShadow(
+          color: const Color(0xFF2E7D5B).withValues(alpha: 0.12),
+          blurRadius: 28,
+          offset: const Offset(0, 12),
+        ),
+        BoxShadow(
+          color: const Color(0xFF34A853).withValues(alpha: 0.06),
+          blurRadius: 40,
+          spreadRadius: 2,
+          offset: const Offset(0, 4),
         ),
       ];
 }

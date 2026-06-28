@@ -26,7 +26,7 @@ class ApiClient {
   String? token;
   void Function()? onUnauthorized;
 
-  ApiClient({String baseUrl = 'http://localhost:4000/api'}) : _baseUrl = baseUrl {
+  ApiClient({String baseUrl = 'http://3.110.77.2:4000/api'}) : _baseUrl = baseUrl {
     _dio = Dio(BaseOptions(
       baseUrl: _baseUrl,
       connectTimeout: const Duration(seconds: 8),

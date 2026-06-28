@@ -22,7 +22,7 @@ class AppDatabase {
   static final AppDatabase instance = AppDatabase._();
 
   static const _dbName = 'aarvy_reception.db';
-  static const _schemaVersion = 1;
+  static const _schemaVersion = 2;
 
   Database? _db;
   String? _path;
@@ -117,6 +117,9 @@ class AppDatabase {
         patient_phone   TEXT,
         patient_age     INTEGER,
         patient_gender  TEXT,
+        patient_blood_group TEXT,
+        patient_type    TEXT,
+        payment_status  TEXT,
         token_number    INTEGER,
         checked_in      INTEGER NOT NULL DEFAULT 0,
         source          TEXT,
@@ -158,7 +161,10 @@ class AppDatabase {
   }
 
   Future<void> _onUpgrade(Database db, int oldVersion, int newVersion) async {
-    // First versioned schema — no migrations yet. Future ALTERs go here,
-    // guarded by `if (oldVersion < N)`.
+    if (oldVersion < 2) {
+      await db.execute('ALTER TABLE archived_appointments ADD COLUMN patient_blood_group TEXT');
+      await db.execute('ALTER TABLE archived_appointments ADD COLUMN patient_type TEXT');
+      await db.execute('ALTER TABLE archived_appointments ADD COLUMN payment_status TEXT');
+    }
   }
 }

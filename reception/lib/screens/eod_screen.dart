@@ -12,6 +12,7 @@ import '../utils/formatters.dart';
 import '../widgets/empty_state.dart';
 import '../widgets/primary_button.dart';
 import '../widgets/screen_scaffold.dart';
+import '../widgets/fade_in.dart';
 
 /// The end-of-day console: shows which past days still need processing, runs
 /// the archive → summarize → purge job with a live log, and lists the history
@@ -44,8 +45,8 @@ class _EodScreenState extends State<EodScreen> {
     final eod = context.watch<EodProvider>();
 
     return ScreenScaffold(
-      title: 'End of day',
-      subtitle: 'Archive → summarize → purge — keeps the cloud small',
+      title: 'End of day console',
+      subtitle: 'Perform secure archiving, summary calculations, and database purge operations',
       actions: [
         IconButton.filledTonal(
           onPressed: eod.isRunning ? null : _refresh,
@@ -55,17 +56,41 @@ class _EodScreenState extends State<EodScreen> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
         children: [
-          _RunCard(eod: eod, onRun: () => eod.runAll()),
+          FadeIn(
+            delay: const Duration(milliseconds: 50),
+            scaleFrom: 0.98,
+            child: _RunCard(eod: eod, onRun: () => eod.runAll()),
+          ),
           if (eod.log.isNotEmpty) ...[
             const SizedBox(height: 20),
-            _LogPanel(eod: eod),
+            FadeIn(
+              delay: const Duration(milliseconds: 100),
+              offsetY: 15,
+              child: _LogPanel(eod: eod),
+            ),
           ],
-          const SizedBox(height: 24),
-          Text('History',
-              style:
-                  Theme.of(context).textTheme.titleLarge?.copyWith(fontSize: 18)),
+          const SizedBox(height: 28),
+          Row(
+            children: [
+              const Icon(Icons.history_rounded, size: 20, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                'Archive History',
+                style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                      fontSize: 17.5,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: -0.3,
+                      color: AppColors.textPrimary,
+                    ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
-          _History(eod: eod),
+          FadeIn(
+            delay: const Duration(milliseconds: 150),
+            scaleFrom: 0.98,
+            child: _History(eod: eod),
+          ),
         ],
       ),
     );
@@ -83,24 +108,35 @@ class _RunCard extends StatelessWidget {
     final hasPending = pending.isNotEmpty;
 
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         gradient: hasPending
-            ? AppColors.mintGradient
+            ? LinearGradient(
+                begin: Alignment.topLeft,
+                end: Alignment.bottomRight,
+                colors: [
+                  AppColors.mint.withValues(alpha: 0.35),
+                  AppColors.mint.withValues(alpha: 0.15),
+                ],
+              )
             : const LinearGradient(colors: [AppColors.white, AppColors.white]),
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
-        border: Border.all(color: AppColors.border),
+        border: Border.all(
+          color: hasPending ? AppColors.primary.withValues(alpha: 0.2) : AppColors.border,
+          width: 1.5,
+        ),
+        boxShadow: AppColors.cardShadow,
       ),
       child: Row(
         children: [
           Container(
-            width: 56,
-            height: 56,
+            width: 58,
+            height: 58,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: (hasPending ? AppColors.warning : AppColors.success)
-                  .withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                  .withValues(alpha: 0.12),
+              shape: BoxShape.circle,
             ),
             child: Icon(
               hasPending ? Icons.pending_actions_rounded : Icons.verified_rounded,
@@ -108,40 +144,51 @@ class _RunCard extends StatelessWidget {
               size: 28,
             ),
           ),
-          const SizedBox(width: 18),
+          const SizedBox(width: 20),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(
                   hasPending
-                      ? '${pending.length} day(s) ready for end-of-day'
-                      : 'All caught up',
+                      ? '${pending.length} day(s) ready for archive process'
+                      : 'All clinic archives up-to-date',
                   style: const TextStyle(
-                      fontSize: 17, fontWeight: FontWeight.w700),
+                    fontSize: 17,
+                    fontWeight: FontWeight.w800,
+                    color: AppColors.textPrimary,
+                  ),
                 ),
                 const SizedBox(height: 4),
                 Text(
                   hasPending
-                      ? 'Days: ${pending.map((d) => Fmt.shortDate(DayKey.parse(d))).join(', ')}'
+                      ? 'Target days: ${pending.map((d) => Fmt.shortDate(DayKey.parse(d))).join(', ')}'
                       : 'No past-day records are waiting in the cloud.',
                   style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 13.5),
+                    color: AppColors.textSecondary,
+                    fontSize: 13.5,
+                    fontWeight: FontWeight.w500,
+                  ),
                 ),
                 if (eod.error != null) ...[
                   const SizedBox(height: 8),
-                  Text(eod.error!,
-                      style: const TextStyle(
-                          color: AppColors.danger, fontSize: 12.5)),
+                  Text(
+                    eod.error!,
+                    style: const TextStyle(
+                      color: AppColors.danger,
+                      fontSize: 12.5,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
                 ],
               ],
             ),
           ),
-          const SizedBox(width: 18),
+          const SizedBox(width: 20),
           SizedBox(
             width: 200,
             child: PrimaryButton(
-              label: eod.isRunning ? 'Running…' : 'Run end-of-day',
+              label: eod.isRunning ? 'Executing…' : 'Run end-of-day',
               icon: Icons.play_arrow_rounded,
               loading: eod.isRunning,
               onPressed: (!hasPending || eod.isRunning) ? null : onRun,
@@ -160,10 +207,11 @@ class _LogPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: const Color(0xFF11221A),
+        color: const Color(0xFF0F1B15),
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(color: AppColors.primary.withValues(alpha: 0.15)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -173,21 +221,33 @@ class _LogPanel extends StatelessWidget {
               const Icon(Icons.terminal_rounded,
                   color: AppColors.primaryLight, size: 18),
               const SizedBox(width: 8),
-              const Text('Run log',
-                  style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.w600,
-                      fontSize: 14)),
+              const Text(
+                'Process output log',
+                style: TextStyle(
+                  color: Colors.white,
+                  fontWeight: FontWeight.w800,
+                  fontSize: 14,
+                ),
+              ),
               const Spacer(),
               if (!eod.isRunning)
                 TextButton(
                   onPressed: eod.clearLog,
-                  child: const Text('Clear'),
+                  style: TextButton.styleFrom(
+                    foregroundColor: AppColors.primaryLight,
+                  ),
+                  child: const Text('Clear Log', style: TextStyle(fontWeight: FontWeight.w700)),
                 ),
             ],
           ),
-          const SizedBox(height: 10),
-          ...eod.log.map((p) => _logLine(p)),
+          const SizedBox(height: 12),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 200),
+            child: ListView(
+              shrinkWrap: true,
+              children: eod.log.map((p) => _logLine(p)).toList(),
+            ),
+          ),
         ],
       ),
     );
@@ -214,16 +274,26 @@ class _LogPanel extends StatelessWidget {
         children: [
           Icon(icon, size: 15, color: color),
           const SizedBox(width: 8),
-          Text('[${p.dayKey}]',
-              style: const TextStyle(
-                  color: AppColors.primaryLight,
-                  fontFamily: 'monospace',
-                  fontSize: 12.5)),
+          Text(
+            '[${p.dayKey}]',
+            style: const TextStyle(
+              color: AppColors.primaryLight,
+              fontFamily: 'Courier',
+              fontWeight: FontWeight.w700,
+              fontSize: 13,
+            ),
+          ),
           const SizedBox(width: 8),
           Expanded(
-            child: Text(p.message,
-                style: TextStyle(
-                    color: color, fontFamily: 'monospace', fontSize: 12.5)),
+            child: Text(
+              p.message,
+              style: TextStyle(
+                color: color,
+                fontFamily: 'Courier',
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+              ),
+            ),
           ),
         ],
       ),
@@ -239,16 +309,17 @@ class _History extends StatelessWidget {
   Widget build(BuildContext context) {
     if (eod.history.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.all(32),
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(AppTheme.radiusLg),
           border: Border.all(color: AppColors.border),
+          boxShadow: AppColors.cardShadow,
         ),
         child: const EmptyState(
           icon: Icons.history_rounded,
-          title: 'No end-of-day history yet',
-          message: 'Processed days will be listed here with their status.',
+          title: 'No past archives recorded',
+          message: 'Historical end-of-day processes will appear here.',
         ),
       );
     }
@@ -258,6 +329,7 @@ class _History extends StatelessWidget {
         color: AppColors.card,
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.cardShadow,
       ),
       child: Column(
         children: [
@@ -275,7 +347,7 @@ class _History extends StatelessWidget {
   }
 }
 
-class _HistoryRow extends StatelessWidget {
+class _HistoryRow extends StatefulWidget {
   final DayState state;
   final bool running;
   final VoidCallback onRetry;
@@ -286,59 +358,77 @@ class _HistoryRow extends StatelessWidget {
   });
 
   @override
+  State<_HistoryRow> createState() => _HistoryRowState();
+}
+
+class _HistoryRowState extends State<_HistoryRow> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final done = state.isDone;
+    final done = widget.state.isDone;
     final color = done
         ? AppColors.success
-        : state.lastError != null
+        : widget.state.lastError != null
             ? AppColors.danger
             : AppColors.warning;
 
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Icon(
-            done ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
-            color: color,
-            size: 22,
-          ),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(Fmt.longDate(DayKey.parse(state.dayKey)),
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: AppTheme.fast,
+        color: _hovered ? AppColors.primary.withValues(alpha: 0.02) : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Icon(
+              done ? Icons.check_circle_rounded : Icons.radio_button_unchecked,
+              color: color,
+              size: 22,
+            ),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    Fmt.longDate(DayKey.parse(widget.state.dayKey)),
                     style: const TextStyle(
-                        fontSize: 14.5, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 3),
-                Text(
-                  _subtitle(state),
-                  style: TextStyle(fontSize: 12.5, color: color),
-                ),
-              ],
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
+                  ),
+                  const SizedBox(height: 3),
+                  Text(
+                    _subtitle(widget.state),
+                    style: TextStyle(fontSize: 12.5, color: color, fontWeight: FontWeight.w600),
+                  ),
+                ],
+              ),
             ),
-          ),
-          _StageChips(stage: state.stage),
-          if (!done) ...[
-            const SizedBox(width: 12),
-            TextButton.icon(
-              onPressed: running ? null : onRetry,
-              icon: const Icon(Icons.refresh_rounded, size: 16),
-              label: const Text('Resume'),
-            ),
+            _StageChips(stage: widget.state.stage),
+            if (!done) ...[
+              const SizedBox(width: 16),
+              TextButton.icon(
+                onPressed: widget.running ? null : widget.onRetry,
+                icon: const Icon(Icons.refresh_rounded, size: 16),
+                label: const Text('Resume', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ],
           ],
-        ],
+        ),
       ),
     );
   }
 
   String _subtitle(DayState s) {
-    if (s.lastError != null && !s.isDone) return 'Error: ${s.lastError}';
+    if (s.lastError != null && !s.isDone) return 'Execution failure: ${s.lastError}';
     if (s.isDone) {
-      return 'Archived ${s.archivedCount} · purged ${s.purgedCount} from cloud';
+      return 'Archived ${s.archivedCount} records · Purged ${s.purgedCount} from database';
     }
-    return 'Stage: ${s.stage.name}';
+    return 'Active stage: ${s.stage.name}';
   }
 }
 
@@ -352,7 +442,7 @@ class _StageChips extends StatelessWidget {
       final reached = stage.reached(s);
       return Container(
         margin: const EdgeInsets.only(left: 6),
-        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 4),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4.5),
         decoration: BoxDecoration(
           color: reached
               ? AppColors.primary.withValues(alpha: 0.12)
@@ -362,8 +452,8 @@ class _StageChips extends StatelessWidget {
         child: Text(
           label,
           style: TextStyle(
-            fontSize: 11,
-            fontWeight: FontWeight.w600,
+            fontSize: 10.5,
+            fontWeight: FontWeight.w700,
             color: reached ? AppColors.primary : AppColors.textTertiary,
           ),
         ),

@@ -55,7 +55,7 @@ class DoctorsProvider extends ChangeNotifier {
     notifyListeners();
     try {
       final Paged<Doctor> res =
-          await _services.doctors.list(limit: 200, sort: 'relevance');
+          await _services.doctors.list(limit: 100, sort: 'relevance');
       _doctors
         ..clear()
         ..addAll(res.data);

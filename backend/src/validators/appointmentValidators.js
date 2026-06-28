@@ -30,6 +30,9 @@ const baseBooking = {
   paymentMethod: paymentInt.optional(),
   patientAge: z.number().int().min(0).max(130).optional(),
   patientGender: z.enum(['male', 'female', 'other']).optional(),
+  patientBloodGroup: z.string().trim().optional(),
+  patientType: z.enum(['ipd', 'opd']).optional(),
+  paymentStatus: z.string().trim().optional(),
 };
 
 // Patient-app booking — identity is optional (the app has no patient record).

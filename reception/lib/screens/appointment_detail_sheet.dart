@@ -53,7 +53,6 @@ class _AppointmentDetailSheetState extends State<AppointmentDetailSheet> {
       try {
         slip = await services.appointments.slip(_a.id);
       } catch (_) {
-        // Offline / not found → build from the row we already have.
         slip = Slip.fromAppointment(_a, statusLabel: StatusUi.label(_a.status));
       }
       await SlipPrinter.print(slip,
@@ -71,22 +70,29 @@ class _AppointmentDetailSheetState extends State<AppointmentDetailSheet> {
         : 'Walk-in / Unnamed';
 
     return DraggableScrollableSheet(
-      initialChildSize: 0.7,
+      initialChildSize: 0.72,
       minChildSize: 0.5,
-      maxChildSize: 0.92,
+      maxChildSize: 0.94,
       expand: false,
       builder: (context, scrollCtrl) {
         return Container(
           decoration: const BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.vertical(top: Radius.circular(28)),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black12,
+                blurRadius: 20,
+                spreadRadius: 2,
+              ),
+            ],
           ),
           child: Column(
             children: [
               const SizedBox(height: 12),
               Container(
-                width: 44,
-                height: 5,
+                width: 46,
+                height: 5.5,
                 decoration: BoxDecoration(
                   color: AppColors.border,
                   borderRadius: BorderRadius.circular(3),
@@ -95,28 +101,36 @@ class _AppointmentDetailSheetState extends State<AppointmentDetailSheet> {
               Expanded(
                 child: ListView(
                   controller: scrollCtrl,
-                  padding: const EdgeInsets.fromLTRB(24, 18, 24, 28),
+                  padding: const EdgeInsets.fromLTRB(28, 20, 28, 32),
                   children: [
+                    // Header Area
                     Row(
                       children: [
-                        Avatar(name: patient, size: 56),
+                        Avatar(name: patient, size: 58),
                         const SizedBox(width: 16),
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
-                              Text(patient,
-                                  style: const TextStyle(
-                                      fontSize: 20,
-                                      fontWeight: FontWeight.w700)),
+                              Text(
+                                patient,
+                                style: const TextStyle(
+                                  fontSize: 20,
+                                  fontWeight: FontWeight.w800,
+                                  color: AppColors.textPrimary,
+                                  letterSpacing: -0.5,
+                                ),
+                              ),
                               const SizedBox(height: 4),
                               Text(
                                 _a.patientPhone?.isNotEmpty == true
                                     ? _a.patientPhone!
-                                    : 'No phone on file',
+                                    : 'No phone number available',
                                 style: const TextStyle(
-                                    color: AppColors.textSecondary,
-                                    fontSize: 13.5),
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w500,
+                                  fontSize: 13.5,
+                                ),
                               ),
                             ],
                           ),
@@ -124,14 +138,31 @@ class _AppointmentDetailSheetState extends State<AppointmentDetailSheet> {
                         StatusPill(
                           label: StatusUi.label(_a.status),
                           color: StatusUi.color(_a.status),
+                          icon: _statusIcon(_a.status),
                         ),
                       ],
                     ),
-                    const SizedBox(height: 22),
+                    const SizedBox(height: 24),
+
+                    // Info Card layout
                     _infoCard(),
                     const SizedBox(height: 20),
-                    if (_busy) const LinearProgressIndicator(minHeight: 2),
-                    const SizedBox(height: 8),
+
+                    // Process/Activity indicator
+                    if (_busy)
+                      Padding(
+                        padding: const EdgeInsets.only(bottom: 12),
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(4),
+                          child: const LinearProgressIndicator(
+                            minHeight: 3,
+                            color: AppColors.primary,
+                            backgroundColor: AppColors.mint,
+                          ),
+                        ),
+                      ),
+
+                    // Action Controls
                     _actions(appts),
                   ],
                 ),
@@ -143,52 +174,82 @@ class _AppointmentDetailSheetState extends State<AppointmentDetailSheet> {
     );
   }
 
+  IconData _statusIcon(int status) {
+    return switch (status) {
+      0 => Icons.schedule_rounded,
+      1 => Icons.check_circle_outline_rounded,
+      2 => Icons.cancel_outlined,
+      _ => Icons.info_outline_rounded,
+    };
+  }
+
   Widget _infoCard() {
     return Container(
-      padding: const EdgeInsets.all(18),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        color: AppColors.softGreenTint,
+        color: AppColors.scaffold,
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(color: AppColors.border),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.01),
+            blurRadius: 10,
+            offset: const Offset(0, 4),
+          ),
+        ],
       ),
       child: Column(
         children: [
-          _row('Doctor', _a.doctorName),
+          _row('Doctor', _a.doctorName, isBold: true),
           _row('Specialty', _a.specialtyName),
           _row('Date', Fmt.longDate(_a.dateTime)),
-          _row('Slot', _a.slotLabel.isEmpty ? Fmt.time(_a.dateTime) : _a.slotLabel),
-          _row('Fee', Fmt.rupees(_a.fee)),
-          _row('Payment', StatusUi.paymentLabel(_a.paymentMethod)),
-          if (_a.tokenNumber != null) _row('Token', '#${_a.tokenNumber}'),
-          if (_a.patientAge != null) _row('Age', '${_a.patientAge}'),
+          _row('Slot', _a.slotLabel.isEmpty ? Fmt.time(_a.dateTime) : _a.slotLabel, isBold: true),
+          _row('Consultation Fee', Fmt.rupees(_a.fee)),
+          _row('Payment Mode', StatusUi.paymentLabel(_a.paymentMethod)),
+          if (_a.tokenNumber != null) _row('Token Number', '#${_a.tokenNumber}', isAccent: true),
+          if (_a.patientAge != null) _row('Age', '${_a.patientAge} years'),
           if (_a.patientGender?.isNotEmpty == true)
             _row('Gender', _a.patientGender!),
-          _row('Checked in', _a.checkedIn ? 'Yes' : 'No'),
-          if (_a.source?.isNotEmpty == true) _row('Source', _a.source!),
+          _row('Checked In', _a.checkedIn ? 'Yes' : 'No', isAccent: _a.checkedIn),
+          if (_a.source?.isNotEmpty == true) _row('Registration Source', _a.source!),
         ],
       ),
     );
   }
 
-  Widget _row(String label, String value) => Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(
-              width: 96,
-              child: Text(label,
-                  style: const TextStyle(
-                      color: AppColors.textSecondary, fontSize: 13.5)),
+  Widget _row(String label, String value, {bool isBold = false, bool isAccent = false}) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 6.5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 140,
+            child: Text(
+              label,
+              style: const TextStyle(
+                color: AppColors.textSecondary,
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
-            Expanded(
-              child: Text(value,
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w600, fontSize: 13.5)),
+          ),
+          Expanded(
+            child: Text(
+              value,
+              style: TextStyle(
+                fontWeight: (isBold || isAccent) ? FontWeight.w800 : FontWeight.w600,
+                fontSize: 13.5,
+                color: isAccent
+                    ? AppColors.primary
+                    : AppColors.textPrimary,
+              ),
             ),
-          ],
-        ),
-      );
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _actions(AppointmentsProvider appts) {
     final canModify = !_a.isCancelled;
@@ -199,29 +260,45 @@ class _AppointmentDetailSheetState extends State<AppointmentDetailSheet> {
           children: [
             Expanded(
               child: OutlinedButton.icon(
+                style: OutlinedButton.styleFrom(
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                  side: const BorderSide(color: AppColors.primary, width: 1.5),
+                  shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+                ),
                 onPressed: _printing ? null : _printSlip,
                 icon: _printing
                     ? const SizedBox(
                         width: 16,
                         height: 16,
                         child: CircularProgressIndicator(strokeWidth: 2))
-                    : const Icon(Icons.print_rounded, size: 18),
-                label: const Text('Print slip'),
+                    : const Icon(Icons.print_rounded, size: 18, color: AppColors.primary),
+                label: const Text(
+                  'Print slip',
+                  style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.primary),
+                ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             if (canModify && !_a.checkedIn)
               Expanded(
                 child: OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    side: const BorderSide(color: AppColors.info, width: 1.5),
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+                  ),
                   onPressed:
                       _busy ? null : () => _run(() => appts.checkIn(_a.id)),
-                  icon: const Icon(Icons.how_to_reg_rounded, size: 18),
-                  label: const Text('Check in'),
+                  icon: const Icon(Icons.how_to_reg_rounded, size: 18, color: AppColors.info),
+                  label: const Text(
+                    'Check in',
+                    style: TextStyle(fontWeight: FontWeight.w700, color: AppColors.info),
+                  ),
                 ),
               ),
           ],
         ),
-        const SizedBox(height: 12),
+        const SizedBox(height: 14),
         if (canModify && !_a.isCompleted)
           PrimaryButton(
             label: 'Mark completed',
@@ -231,9 +308,16 @@ class _AppointmentDetailSheetState extends State<AppointmentDetailSheet> {
           ),
         if (canModify && _a.isCompleted)
           OutlinedButton.icon(
+            style: OutlinedButton.styleFrom(
+              padding: const EdgeInsets.symmetric(vertical: 14),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+            ),
             onPressed: _busy ? null : () => _run(() => appts.markUpcoming(_a.id)),
             icon: const Icon(Icons.undo_rounded, size: 18),
-            label: const Text('Reopen (mark upcoming)'),
+            label: const Text(
+              'Reopen (mark upcoming)',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
         const SizedBox(height: 12),
         if (canModify)
@@ -245,7 +329,10 @@ class _AppointmentDetailSheetState extends State<AppointmentDetailSheet> {
                   },
             style: TextButton.styleFrom(foregroundColor: AppColors.danger),
             icon: const Icon(Icons.cancel_outlined, size: 18),
-            label: const Text('Cancel appointment'),
+            label: const Text(
+              'Cancel appointment',
+              style: TextStyle(fontWeight: FontWeight.w700),
+            ),
           ),
       ],
     );

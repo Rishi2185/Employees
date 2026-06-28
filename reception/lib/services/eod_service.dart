@@ -87,7 +87,7 @@ class EodService {
     final yesterday = DayKey.previous(todayDayKey);
     var page = 1;
     while (true) {
-      final res = await _appointments.list(to: yesterday, page: page, limit: 200);
+      final res = await _appointments.list(to: yesterday, page: page, limit: 100);
       for (final a in res.data) {
         if (DayKey.isBefore(a.dayKey, todayDayKey)) days.add(a.dayKey);
       }
@@ -206,7 +206,7 @@ class EodService {
     var page = 1;
     while (true) {
       final res =
-          await _appointments.list(date: dayKey, page: page, limit: 200);
+          await _appointments.list(date: dayKey, page: page, limit: 100);
       all.addAll(res.data);
       if (res.data.isEmpty || page * res.limit >= res.total) break;
       page++;

@@ -22,6 +22,9 @@ class ReceptionAppointment {
   final String? patientPhone;
   final int? patientAge;
   final String? patientGender;
+  final String? patientBloodGroup;
+  final String? patientType;
+  final String? paymentStatus;
   final int? tokenNumber;
   final bool checkedIn;
   final String? source;
@@ -46,6 +49,9 @@ class ReceptionAppointment {
     this.patientPhone,
     this.patientAge,
     this.patientGender,
+    this.patientBloodGroup,
+    this.patientType,
+    this.paymentStatus,
     this.tokenNumber,
     this.checkedIn = false,
     this.source,
@@ -75,6 +81,9 @@ class ReceptionAppointment {
         patientPhone: json['patientPhone'] as String?,
         patientAge: json['patientAge'] as int?,
         patientGender: json['patientGender'] as String?,
+        patientBloodGroup: json['patientBloodGroup'] as String?,
+        patientType: json['patientType'] as String?,
+        paymentStatus: json['paymentStatus'] as String?,
         tokenNumber: json['tokenNumber'] as int?,
         checkedIn: (json['checkedIn'] ?? false) as bool,
         source: json['source'] as String?,
@@ -101,6 +110,9 @@ class ReceptionAppointment {
         'patient_phone': patientPhone,
         'patient_age': patientAge,
         'patient_gender': patientGender,
+        'patient_blood_group': patientBloodGroup,
+        'patient_type': patientType,
+        'payment_status': paymentStatus,
         'token_number': tokenNumber,
         'checked_in': checkedIn ? 1 : 0,
         'source': source,
@@ -127,6 +139,9 @@ class ReceptionAppointment {
         patientPhone: r['patient_phone'] as String?,
         patientAge: r['patient_age'] as int?,
         patientGender: r['patient_gender'] as String?,
+        patientBloodGroup: r['patient_blood_group'] as String?,
+        patientType: r['patient_type'] as String?,
+        paymentStatus: r['payment_status'] as String?,
         tokenNumber: r['token_number'] as int?,
         checkedIn: ((r['checked_in'] ?? 0) as int) == 1,
         source: r['source'] as String?,

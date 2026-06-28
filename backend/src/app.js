@@ -15,6 +15,7 @@ const appointmentRoutes = require('./routes/appointments');
 const statsRoutes = require('./routes/stats');
 const summaryRoutes = require('./routes/summaries');
 const metaRoutes = require('./routes/meta');
+const imagekitAuthRoutes = require('./routes/imagekitAuth');
 
 /** Build the Express app (no DB connection / no listen — that's server.js). */
 function createApp() {
@@ -38,6 +39,7 @@ function createApp() {
   app.use('/api/stats', statsRoutes);
   app.use('/api/summaries', summaryRoutes);
   app.use('/api', metaRoutes); // /api/specialties, /api/hospitals
+  app.use('/api/imagekit', imagekitAuthRoutes);
 
   app.use(notFoundHandler);
   app.use(errorHandler);

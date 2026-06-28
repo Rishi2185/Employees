@@ -11,6 +11,7 @@ import '../theme/app_theme.dart';
 import '../utils/day_key.dart';
 import '../widgets/app_text_field.dart';
 import '../widgets/screen_scaffold.dart';
+import '../widgets/fade_in.dart';
 
 /// Station settings: backend URL, hospital identity, local-archive retention,
 /// and the on-disk backup / CSV export tools.
@@ -28,7 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final _hospital =
       TextEditingController(text: _services.settings.hospitalName);
   late int _retention = _services.settings.retentionDays;
-  String? _savedNote;
+
   bool _working = false;
 
   @override
@@ -39,9 +40,15 @@ class _SettingsScreenState extends State<SettingsScreen> {
   }
 
   void _toast(String msg) {
-    setState(() => _savedNote = msg);
-    ScaffoldMessenger.of(context)
-        .showSnackBar(SnackBar(content: Text(msg)));
+
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(msg, style: const TextStyle(fontWeight: FontWeight.w600)),
+        behavior: SnackBarBehavior.floating,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusSm)),
+        backgroundColor: AppColors.primaryDark,
+      ),
+    );
   }
 
   Future<void> _saveConnection() async {
@@ -49,7 +56,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     _services.api.baseUrl = _baseUrl.text.trim();
     await _services.settings.setHospitalName(_hospital.text);
     await _services.settings.setRetentionDays(_retention);
-    _toast('Settings saved.');
+    _toast('Settings saved successfully.');
   }
 
   Future<void> _backupDb() async {
@@ -61,7 +68,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _working = true);
     try {
       final bytes = await _services.backup.backupDatabase(location.path);
-      _toast('Backed up ${(bytes / 1024).toStringAsFixed(0)} KB to disk.');
+      _toast('Backed up ${(bytes / 1024).toStringAsFixed(0)} KB to local storage.');
     } catch (e) {
       _toast('Backup failed: $e');
     } finally {
@@ -78,7 +85,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     setState(() => _working = true);
     try {
       final rows = await _services.backup.exportRangeCsv(destPath: location.path);
-      _toast('Exported $rows record(s) to CSV.');
+      _toast('Exported $rows record(s) to CSV successfully.');
     } catch (e) {
       _toast('Export failed: $e');
     } finally {
@@ -92,109 +99,154 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
     return ScreenScaffold(
       title: 'Settings',
-      subtitle: 'Station configuration & local archive tools',
+      subtitle: 'Front desk station configuration & local archive maintenance',
       child: ListView(
         padding: const EdgeInsets.fromLTRB(32, 0, 32, 32),
         children: [
-          _section(
-            'Connection',
-            Icons.cloud_outlined,
-            [
-              AppTextField(
-                label: 'Backend API base URL',
-                controller: _baseUrl,
-                hint: 'http://localhost:4000/api',
-                prefixIcon: Icons.link_rounded,
-              ),
-              const SizedBox(height: 14),
-              AppTextField(
-                label: 'Hospital name (on slips)',
-                controller: _hospital,
-                prefixIcon: Icons.local_hospital_outlined,
-              ),
-              const SizedBox(height: 18),
-              _retentionField(),
-              const SizedBox(height: 20),
-              Align(
-                alignment: Alignment.centerLeft,
-                child: FilledButton.icon(
-                  onPressed: _saveConnection,
-                  icon: const Icon(Icons.save_rounded, size: 18),
-                  label: const Text('Save settings'),
+          FadeIn(
+            delay: const Duration(milliseconds: 50),
+            scaleFrom: 0.98,
+            child: _section(
+              'Connection & Station Info',
+              Icons.cloud_outlined,
+              [
+                AppTextField(
+                  label: 'Backend API Base URL',
+                  controller: _baseUrl,
+                  hint: 'http://localhost:4000/api',
+                  prefixIcon: Icons.link_rounded,
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 20),
-          _section(
-            'Local archive',
-            Icons.storage_rounded,
-            [
-              _pathRow(),
-              const SizedBox(height: 18),
-              Wrap(
-                spacing: 12,
-                runSpacing: 12,
-                children: [
-                  OutlinedButton.icon(
-                    onPressed: _working ? null : _backupDb,
-                    icon: const Icon(Icons.backup_outlined, size: 18),
-                    label: const Text('Back up database'),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: _working ? null : _exportCsv,
-                    icon: const Icon(Icons.table_view_outlined, size: 18),
-                    label: const Text('Export all to CSV'),
-                  ),
-                ],
-              ),
-              if (_working) ...[
                 const SizedBox(height: 16),
-                const LinearProgressIndicator(minHeight: 2),
+                AppTextField(
+                  label: 'Hospital Name (Printed on Slips)',
+                  controller: _hospital,
+                  prefixIcon: Icons.local_hospital_outlined,
+                ),
+                const SizedBox(height: 20),
+                _retentionField(),
+                const SizedBox(height: 24),
+                Align(
+                  alignment: Alignment.centerLeft,
+                  child: FilledButton.icon(
+                    style: FilledButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: AppColors.white,
+                      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+                      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+                    ),
+                    onPressed: _saveConnection,
+                    icon: const Icon(Icons.save_rounded, size: 18),
+                    label: const Text('Save configuration', style: TextStyle(fontWeight: FontWeight.w700)),
+                  ),
+                ),
               ],
-            ],
+            ),
           ),
           const SizedBox(height: 20),
-          _section(
-            'Account',
-            Icons.person_outline_rounded,
-            [
-              Row(
-                children: [
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(auth.displayName.isEmpty
-                            ? 'Reception'
-                            : auth.displayName,
-                            style: const TextStyle(
-                                fontSize: 15, fontWeight: FontWeight.w600)),
-                        const SizedBox(height: 3),
-                        Text('Role: ${auth.session?.role ?? '—'}',
-                            style: const TextStyle(
-                                color: AppColors.textSecondary, fontSize: 13)),
-                      ],
+          FadeIn(
+            delay: const Duration(milliseconds: 120),
+            scaleFrom: 0.98,
+            child: _section(
+              'Local Archive & Backup Tools',
+              Icons.storage_rounded,
+              [
+                _pathRow(),
+                const SizedBox(height: 20),
+                Wrap(
+                  spacing: 12,
+                  runSpacing: 12,
+                  children: [
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+                      ),
+                      onPressed: _working ? null : _backupDb,
+                      icon: const Icon(Icons.backup_outlined, size: 18),
+                      label: const Text('Backup SQLite database', style: TextStyle(fontWeight: FontWeight.w700)),
                     ),
-                  ),
-                  OutlinedButton.icon(
-                    onPressed: () => context.read<AuthProvider>().logout(),
-                    style: OutlinedButton.styleFrom(
-                        foregroundColor: AppColors.danger,
-                        side: const BorderSide(color: AppColors.danger)),
-                    icon: const Icon(Icons.logout_rounded, size: 18),
-                    label: const Text('Sign out'),
+                    OutlinedButton.icon(
+                      style: OutlinedButton.styleFrom(
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+                      ),
+                      onPressed: _working ? null : _exportCsv,
+                      icon: const Icon(Icons.table_view_outlined, size: 18),
+                      label: const Text('Export archive to CSV', style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ),
+                if (_working) ...[
+                  const SizedBox(height: 16),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(4),
+                    child: const LinearProgressIndicator(minHeight: 3, color: AppColors.primary, backgroundColor: AppColors.mint),
                   ),
                 ],
-              ),
-            ],
+              ],
+            ),
           ),
-          if (_savedNote != null) ...[
-            const SizedBox(height: 16),
-            Text(_savedNote!,
-                style: const TextStyle(
-                    color: AppColors.textTertiary, fontSize: 12.5)),
-          ],
+          const SizedBox(height: 20),
+          FadeIn(
+            delay: const Duration(milliseconds: 180),
+            scaleFrom: 0.98,
+            child: _section(
+              'Account Profile',
+              Icons.person_outline_rounded,
+              [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            auth.displayName.isEmpty ? 'Front Desk Staff' : auth.displayName,
+                            style: const TextStyle(fontSize: 15.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            'Session Role: ${auth.session?.role.toUpperCase() ?? 'RECEPTION'}',
+                            style: const TextStyle(color: AppColors.textSecondary, fontSize: 13, fontWeight: FontWeight.w600),
+                          ),
+                        ],
+                      ),
+                    ),
+                    OutlinedButton.icon(
+                      onPressed: () async {
+                        final confirm = await showDialog<bool>(
+                          context: context,
+                          builder: (ctx) => AlertDialog(
+                            title: const Text('Sign out?'),
+                            content: const Text('Are you sure you want to sign out?'),
+                            actions: [
+                              TextButton(onPressed: () => Navigator.pop(ctx, false), child: const Text('Cancel')),
+                              FilledButton(
+                                style: FilledButton.styleFrom(backgroundColor: AppColors.danger, foregroundColor: AppColors.white),
+                                onPressed: () => Navigator.pop(ctx, true),
+                                child: const Text('Sign out'),
+                              ),
+                            ],
+                          ),
+                        );
+                        if (confirm == true && context.mounted) {
+                          context.read<AuthProvider>().logout();
+                        }
+                      },
+                      style: OutlinedButton.styleFrom(
+                        foregroundColor: AppColors.danger,
+                        side: const BorderSide(color: AppColors.danger, width: 1.5),
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusMd)),
+                      ),
+                      icon: const Icon(Icons.logout_rounded, size: 18),
+                      label: const Text('Sign out', style: TextStyle(fontWeight: FontWeight.w700)),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
         ],
       ),
     );
@@ -204,37 +256,50 @@ class _SettingsScreenState extends State<SettingsScreen> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const Text('Local retention window',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+        const Text(
+          'Local retention window',
+          style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary),
+        ),
         const SizedBox(height: 4),
         const Text(
-          'How many days of full records to keep on disk. Cloud summaries keep '
-          'the long-term trend regardless.',
-          style: TextStyle(fontSize: 12.5, color: AppColors.textSecondary),
+          'Choose the duration (in days) to retain historical patient and slot data on this terminal.',
+          style: TextStyle(fontSize: 13, fontWeight: FontWeight.w500, color: AppColors.textSecondary),
         ),
-        const SizedBox(height: 10),
+        const SizedBox(height: 12),
         Row(
           children: [
             Expanded(
-              child: Slider(
-                value: _retention.toDouble().clamp(7, 1095),
-                min: 7,
-                max: 1095,
-                divisions: 109,
-                label: '$_retention days',
-                onChanged: (v) => setState(() => _retention = v.round()),
+              child: SliderTheme(
+                data: SliderTheme.of(context).copyWith(
+                  activeTrackColor: AppColors.primary,
+                  inactiveTrackColor: AppColors.mint,
+                  thumbColor: AppColors.primary,
+                  overlayColor: AppColors.primary.withValues(alpha: 0.12),
+                  valueIndicatorColor: AppColors.primary,
+                  valueIndicatorTextStyle: const TextStyle(color: Colors.white, fontWeight: FontWeight.bold),
+                ),
+                child: Slider(
+                  value: _retention.toDouble().clamp(7, 1095),
+                  min: 7,
+                  max: 1095,
+                  divisions: 109,
+                  label: '$_retention days',
+                  onChanged: (v) => setState(() => _retention = v.round()),
+                ),
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
               decoration: BoxDecoration(
                 color: AppColors.mint,
                 borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                border: Border.all(color: AppColors.primary.withValues(alpha: 0.1)),
               ),
-              child: Text('$_retention days',
-                  style: const TextStyle(
-                      fontWeight: FontWeight.w700, color: AppColors.primary)),
+              child: Text(
+                '$_retention days',
+                style: const TextStyle(fontWeight: FontWeight.w800, color: AppColors.primary, fontSize: 13.5),
+              ),
             ),
           ],
         ),
@@ -245,39 +310,40 @@ class _SettingsScreenState extends State<SettingsScreen> {
   Widget _pathRow() {
     final path = BackupService.databasePath ?? 'Not opened';
     return Container(
-      padding: const EdgeInsets.all(14),
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
-        color: AppColors.softGreenTint,
+        color: AppColors.scaffold,
         borderRadius: BorderRadius.circular(AppTheme.radiusMd),
         border: Border.all(color: AppColors.border),
       ),
       child: Row(
         children: [
-          const Icon(Icons.folder_outlined,
-              size: 20, color: AppColors.textSecondary),
+          const Icon(Icons.folder_outlined, size: 22, color: AppColors.primary),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                const Text('Database file',
-                    style: TextStyle(
-                        fontSize: 12, color: AppColors.textTertiary)),
+                const Text(
+                  'Local Database File Path',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.textTertiary),
+                ),
                 const SizedBox(height: 2),
-                Text(path,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: const TextStyle(
-                        fontSize: 13, fontWeight: FontWeight.w500)),
+                Text(
+                  path,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.textPrimary),
+                ),
               ],
             ),
           ),
           IconButton(
-            tooltip: 'Copy path',
+            tooltip: 'Copy path to clipboard',
             icon: const Icon(Icons.copy_rounded, size: 18),
             onPressed: () {
               Clipboard.setData(ClipboardData(text: path));
-              _toast('Path copied.');
+              _toast('Database path copied to clipboard.');
             },
           ),
         ],
@@ -287,11 +353,12 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
   Widget _section(String title, IconData icon, List<Widget> children) {
     return Container(
-      padding: const EdgeInsets.all(22),
+      padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
         color: AppColors.card,
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.cardShadow,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -300,12 +367,13 @@ class _SettingsScreenState extends State<SettingsScreen> {
             children: [
               Icon(icon, size: 20, color: AppColors.primary),
               const SizedBox(width: 10),
-              Text(title,
-                  style: const TextStyle(
-                      fontSize: 16, fontWeight: FontWeight.w700)),
+              Text(
+                title,
+                style: const TextStyle(fontSize: 16, fontWeight: FontWeight.w800, color: AppColors.textPrimary),
+              ),
             ],
           ),
-          const SizedBox(height: 18),
+          const SizedBox(height: 20),
           ...children,
         ],
       ),

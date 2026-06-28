@@ -1,12 +1,15 @@
 import 'package:flutter/material.dart';
 
-/// A lightweight entrance animation: fades and slides its child up. Use the
-/// [delay] to stagger items in a list for a polished cascade effect.
+/// A lightweight entrance animation: fades and slides its child up (or
+/// optionally from left/right). Use the [delay] to stagger items for a polished
+/// cascade. The [scaleFrom] option adds a subtle zoom-in for cards.
 class FadeIn extends StatefulWidget {
   final Widget child;
   final Duration delay;
   final Duration duration;
   final double offsetY;
+  final double offsetX;
+  final double scaleFrom;
 
   const FadeIn({
     super.key,
@@ -14,6 +17,8 @@ class FadeIn extends StatefulWidget {
     this.delay = Duration.zero,
     this.duration = const Duration(milliseconds: 420),
     this.offsetY = 24,
+    this.offsetX = 0,
+    this.scaleFrom = 1.0,
   });
 
   @override
@@ -26,8 +31,12 @@ class _FadeInState extends State<FadeIn> with SingleTickerProviderStateMixin {
   late final Animation<double> _opacity =
       CurvedAnimation(parent: _c, curve: Curves.easeOut);
   late final Animation<Offset> _slide = Tween<Offset>(
-    begin: Offset(0, widget.offsetY / 100),
+    begin: Offset(widget.offsetX / 100, widget.offsetY / 100),
     end: Offset.zero,
+  ).animate(CurvedAnimation(parent: _c, curve: Curves.easeOutCubic));
+  late final Animation<double> _scale = Tween<double>(
+    begin: widget.scaleFrom,
+    end: 1.0,
   ).animate(CurvedAnimation(parent: _c, curve: Curves.easeOutCubic));
 
   @override
@@ -48,7 +57,10 @@ class _FadeInState extends State<FadeIn> with SingleTickerProviderStateMixin {
   Widget build(BuildContext context) {
     return FadeTransition(
       opacity: _opacity,
-      child: SlideTransition(position: _slide, child: widget.child),
+      child: SlideTransition(
+        position: _slide,
+        child: ScaleTransition(scale: _scale, child: widget.child),
+      ),
     );
   }
 }

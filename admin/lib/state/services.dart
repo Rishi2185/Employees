@@ -2,6 +2,7 @@ import '../api/api_client.dart';
 import '../api/auth_api.dart';
 import '../api/doctor_api.dart';
 import '../api/health_api.dart';
+import '../api/imagekit_service.dart';
 import '../api/meta_api.dart';
 import '../api/stats_api.dart';
 import '../api/summary_api.dart';
@@ -19,6 +20,7 @@ class Services {
   final SummaryApi summaries;
   final MetaApi meta;
   final HealthApi health;
+  final ImageKitService imagekit;
 
   Services._({
     required this.settings,
@@ -29,6 +31,7 @@ class Services {
     required this.summaries,
     required this.meta,
     required this.health,
+    required this.imagekit,
   });
 
   /// Build the graph. Pass [apiOverride] in tests to inject a fake client.
@@ -44,6 +47,7 @@ class Services {
       summaries: SummaryApi(api),
       meta: MetaApi(api),
       health: HealthApi(api),
+      imagekit: ImageKitService(api),
     );
   }
 }

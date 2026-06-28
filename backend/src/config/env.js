@@ -32,6 +32,12 @@ const env = {
     receptionUser: process.env.RECEPTION_USER || 'reception',
     receptionPass: process.env.RECEPTION_PASS || 'reception1234',
   },
+
+  imagekit: {
+    publicKey: process.env.IMAGEKIT_PUBLIC_KEY || '',
+    privateKey: process.env.IMAGEKIT_PRIVATE_KEY || '',
+    urlEndpoint: process.env.IMAGEKIT_URL_ENDPOINT || '',
+  },
 };
 
 env.isProd = env.nodeEnv === 'production';

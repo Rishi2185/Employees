@@ -51,6 +51,9 @@ const appointmentSchema = new mongoose.Schema(
     patientPhone: { type: String },
     patientAge: { type: Number },
     patientGender: { type: String, enum: ['male', 'female', 'other'] },
+    patientBloodGroup: { type: String },
+    patientType: { type: String, enum: ['ipd', 'opd'] },
+    paymentStatus: { type: String, default: 'completed' },
     source: {
       type: String,
       enum: Object.values(APPOINTMENT_SOURCE),

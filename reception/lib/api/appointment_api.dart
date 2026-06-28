@@ -57,11 +57,11 @@ class AppointmentApi {
       'slotLabel': slotLabel,
       'patientName': patientName,
       'patientPhone': patientPhone,
-      if (patientAge != null) 'patientAge': patientAge,
-      if (patientGender != null) 'patientGender': patientGender,
-      if (paymentMethod != null) 'paymentMethod': paymentMethod,
-      if (fee != null) 'fee': fee,
-      if (tokenNumber != null) 'tokenNumber': tokenNumber,
+      'patientAge': ?patientAge,
+      'patientGender': ?patientGender,
+      'paymentMethod': ?paymentMethod,
+      'fee': ?fee,
+      'tokenNumber': ?tokenNumber,
     }) as Map<String, dynamic>;
     return ReceptionAppointment.fromJson(data);
   }

@@ -1,10 +1,14 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:image_picker/image_picker.dart';
 import 'package:provider/provider.dart';
 
 import '../models/doctor.dart';
 import '../models/doctor_input.dart';
 import '../models/specialty.dart';
+import '../state/services.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../widgets/app_text_field.dart';
@@ -12,8 +16,7 @@ import '../widgets/avatar.dart';
 import '../widgets/primary_button.dart';
 import '../state/doctors_provider.dart';
 
-/// Add or edit a doctor. On save, writes to the cloud Doctors store (→ patient
-/// app). When [doctor] is null it's a create; otherwise an update.
+/// Add or edit a doctor. On save, writes to the cloud Doctors store.
 class DoctorEditScreen extends StatefulWidget {
   final Doctor? doctor;
   const DoctorEditScreen({super.key, this.doctor});
@@ -43,6 +46,9 @@ class _DoctorEditScreenState extends State<DoctorEditScreen> {
       TextEditingController(text: _input.languages.join(', '));
 
   String? _error;
+  bool _uploading = false;
+
+  final _picker = ImagePicker();
 
   static const _weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
@@ -64,7 +70,6 @@ class _DoctorEditScreenState extends State<DoctorEditScreen> {
   }
 
   Future<void> _save() async {
-    // Pull text fields into the input model.
     _input
       ..name = _name.text
       ..qualifications = _qualifications.text
@@ -103,129 +108,262 @@ class _DoctorEditScreenState extends State<DoctorEditScreen> {
     }
   }
 
+  Future<void> _pickAndUpload() async {
+    final services = context.read<Services>();
+    final picked = await _picker.pickImage(
+      source: ImageSource.gallery,
+      maxWidth: 800,
+      maxHeight: 800,
+      imageQuality: 85,
+    );
+    if (picked == null) return;
+
+    setState(() => _uploading = true);
+    try {
+      final url = await services.imagekit.uploadDoctorPhoto(File(picked.path));
+      if (!mounted) return;
+      setState(() {
+        _photoUrl.text = url;
+        _uploading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() => _uploading = false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Upload failed: $e')),
+      );
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final provider = context.watch<DoctorsProvider>();
 
     return Scaffold(
+      backgroundColor: AppColors.scaffold,
       appBar: AppBar(
-        title: Text(widget.isEdit ? 'Edit doctor' : 'Add doctor'),
+        backgroundColor: AppColors.white,
+        title: Text(
+          widget.isEdit ? 'Edit Doctor' : 'Add Doctor',
+          style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 19),
+        ),
       ),
       body: SafeArea(
         child: ListView(
-          padding: const EdgeInsets.fromLTRB(20, 12, 20, 32),
+          padding: const EdgeInsets.fromLTRB(20, 16, 20, 32),
           children: [
+            // Avatar profile preview
             Center(
               child: Column(
                 children: [
                   Avatar(
                       name: _name.text.isEmpty ? 'New' : _name.text,
                       imageUrl: _photoUrl.text,
-                      size: 76),
-                  const SizedBox(height: 6),
+                      size: 80),
+                  const SizedBox(height: 10),
                   if (widget.isEdit && !_input.active)
-                    const Text('Inactive — hidden from patients',
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                      decoration: BoxDecoration(
+                        color: AppColors.textTertiary.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: const Text(
+                        'Inactive — hidden from patients',
                         style: TextStyle(
-                            fontSize: 12, color: AppColors.textTertiary)),
+                            fontSize: 12,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textSecondary),
+                      ),
+                    ),
                 ],
               ),
             ),
-            const SizedBox(height: 20),
-            AppTextField(
-              label: 'Full name *',
-              controller: _name,
-              hint: 'e.g. Dr. Asha Rao',
-              prefixIcon: Icons.person_outline_rounded,
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 14),
-            _specialtyPicker(provider.specialties),
-            const SizedBox(height: 14),
-            Row(
+            const SizedBox(height: 24),
+
+            // Card 1: Professional details
+            _sectionCard(
+              title: 'Professional Details',
+              icon: Icons.badge_outlined,
               children: [
-                Expanded(
-                  child: AppTextField(
-                    label: 'Experience (yrs)',
-                    controller: _experience,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  ),
+                AppTextField(
+                  label: 'Full name *',
+                  controller: _name,
+                  hint: 'e.g. Dr. Asha Rao',
+                  prefixIcon: Icons.person_outline_rounded,
+                  onChanged: (_) => setState(() {}),
                 ),
-                const SizedBox(width: 14),
-                Expanded(
-                  child: AppTextField(
-                    label: 'Fee (₹)',
-                    controller: _fee,
-                    keyboardType: TextInputType.number,
-                    inputFormatters: [FilteringTextInputFormatter.digitsOnly],
-                  ),
+                const SizedBox(height: 16),
+                _specialtyPicker(provider.specialties),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: AppTextField(
+                        label: 'Experience (yrs)',
+                        controller: _experience,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      ),
+                    ),
+                    const SizedBox(width: 14),
+                    Expanded(
+                      child: AppTextField(
+                        label: 'Fee (₹)',
+                        controller: _fee,
+                        keyboardType: TextInputType.number,
+                        inputFormatters: [FilteringTextInputFormatter.digitsOnly],
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                AppTextField(
+                  label: 'Qualifications',
+                  controller: _qualifications,
+                  hint: 'MBBS, MD',
+                  prefixIcon: Icons.school_outlined,
+                ),
+                const SizedBox(height: 16),
+                AppTextField(
+                  label: 'Hospital Name',
+                  controller: _hospital,
+                  prefixIcon: Icons.local_hospital_outlined,
                 ),
               ],
             ),
-            const SizedBox(height: 14),
-            AppTextField(
-              label: 'Qualifications',
-              controller: _qualifications,
-              hint: 'MBBS, MD',
-              prefixIcon: Icons.school_outlined,
+            const SizedBox(height: 16),
+
+            // Card 2: Contact & Bio
+            _sectionCard(
+              title: 'Profile Info',
+              icon: Icons.assignment_ind_outlined,
+              children: [
+                // ── Photo upload card ──
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('Doctor Photo',
+                        style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w600,
+                            color: AppColors.textPrimary)),
+                    const SizedBox(height: 10),
+                    GestureDetector(
+                      onTap: _uploading ? null : _pickAndUpload,
+                      child: AnimatedContainer(
+                        duration: AppTheme.fast,
+                        width: double.infinity,
+                        padding: const EdgeInsets.symmetric(vertical: 20),
+                        decoration: BoxDecoration(
+                          color: AppColors.white,
+                          borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+                          border: Border.all(color: AppColors.border),
+                        ),
+                        child: Column(
+                          children: [
+                            if (_uploading)
+                              const SizedBox(
+                                width: 48,
+                                height: 48,
+                                child: CircularProgressIndicator(strokeWidth: 2.5),
+                              )
+                            else if (_photoUrl.text.isNotEmpty)
+                              Avatar(
+                                  name: _name.text.isEmpty ? 'New' : _name.text,
+                                  imageUrl: _photoUrl.text,
+                                  size: 64)
+                            else
+                              Container(
+                                width: 64,
+                                height: 64,
+                                decoration: BoxDecoration(
+                                  color: AppColors.mint,
+                                  borderRadius: BorderRadius.circular(32),
+                                ),
+                                child: const Icon(Icons.add_a_photo_rounded,
+                                    color: AppColors.primary, size: 28),
+                              ),
+                            const SizedBox(height: 10),
+                            Text(
+                              _photoUrl.text.isNotEmpty
+                                  ? 'Tap to change photo'
+                                  : 'Tap to upload photo',
+                              style: const TextStyle(
+                                  fontSize: 13,
+                                  color: AppColors.textSecondary,
+                                  fontWeight: FontWeight.w500),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+                AppTextField(
+                  label: 'Photo URL (or paste manually)',
+                  controller: _photoUrl,
+                  hint: 'https://…',
+                  prefixIcon: Icons.link_rounded,
+                  onChanged: (_) => setState(() {}),
+                ),
+                const SizedBox(height: 16),
+                AppTextField(
+                  label: 'Languages (comma-separated)',
+                  controller: _languages,
+                  hint: 'English, Hindi',
+                  prefixIcon: Icons.translate_rounded,
+                ),
+                const SizedBox(height: 16),
+                AppTextField(
+                  label: 'About',
+                  controller: _about,
+                  hint: 'Short bio shown to patients',
+                ),
+              ],
             ),
-            const SizedBox(height: 14),
-            AppTextField(
-              label: 'Hospital',
-              controller: _hospital,
-              prefixIcon: Icons.local_hospital_outlined,
+            const SizedBox(height: 16),
+
+            // Card 3: Availability & Hours
+            _sectionCard(
+              title: 'Availability & Hours',
+              icon: Icons.schedule_rounded,
+              children: [
+                _consultHours(),
+                const SizedBox(height: 20),
+                _availableDays(),
+                const SizedBox(height: 16),
+                const Divider(),
+                SwitchListTile(
+                  contentPadding: EdgeInsets.zero,
+                  title: const Text('Available today',
+                      style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                  subtitle: const Text('Patients can book slots for today'),
+                  value: _input.availableToday,
+                  onChanged: (v) => setState(() => _input.availableToday = v),
+                ),
+                if (widget.isEdit)
+                  SwitchListTile(
+                    contentPadding: EdgeInsets.zero,
+                    title: const Text('Active roster visibility',
+                        style:
+                            TextStyle(fontSize: 14.5, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
+                    subtitle: const Text('Visible in the patient booking catalog'),
+                    value: _input.active,
+                    onChanged: (v) => setState(() => _input.active = v),
+                  ),
+              ],
             ),
-            const SizedBox(height: 14),
-            AppTextField(
-              label: 'Photo URL',
-              controller: _photoUrl,
-              hint: 'https://…',
-              prefixIcon: Icons.image_outlined,
-              onChanged: (_) => setState(() {}),
-            ),
-            const SizedBox(height: 14),
-            AppTextField(
-              label: 'Languages (comma-separated)',
-              controller: _languages,
-              hint: 'English, Hindi',
-              prefixIcon: Icons.translate_rounded,
-            ),
-            const SizedBox(height: 14),
-            AppTextField(
-              label: 'About',
-              controller: _about,
-              hint: 'Short bio shown to patients',
-            ),
-            const SizedBox(height: 20),
-            _consultHours(),
-            const SizedBox(height: 20),
-            _availableDays(),
-            const SizedBox(height: 8),
-            SwitchListTile(
-              contentPadding: EdgeInsets.zero,
-              title: const Text('Available today',
-                  style: TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600)),
-              subtitle: const Text('Patients can book a slot today'),
-              value: _input.availableToday,
-              onChanged: (v) => setState(() => _input.availableToday = v),
-            ),
-            if (widget.isEdit)
-              SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                title: const Text('Active',
-                    style:
-                        TextStyle(fontSize: 14.5, fontWeight: FontWeight.w600)),
-                subtitle: const Text('Visible in the patient app'),
-                value: _input.active,
-                onChanged: (v) => setState(() => _input.active = v),
-              ),
+
             if (_error != null) ...[
-              const SizedBox(height: 12),
+              const SizedBox(height: 16),
               Container(
                 padding: const EdgeInsets.all(12),
                 decoration: BoxDecoration(
                   color: AppColors.danger.withValues(alpha: 0.08),
                   borderRadius: BorderRadius.circular(AppTheme.radiusSm),
+                  border: Border.all(color: AppColors.danger.withValues(alpha: 0.15)),
                 ),
                 child: Row(
                   children: [
@@ -235,7 +373,7 @@ class _DoctorEditScreenState extends State<DoctorEditScreen> {
                     Expanded(
                       child: Text(_error!,
                           style: const TextStyle(
-                              color: AppColors.danger, fontSize: 13)),
+                              color: AppColors.danger, fontSize: 13, fontWeight: FontWeight.w600)),
                     ),
                   ],
                 ),
@@ -254,15 +392,52 @@ class _DoctorEditScreenState extends State<DoctorEditScreen> {
     );
   }
 
+  Widget _sectionCard({
+    required String title,
+    required IconData icon,
+    required List<Widget> children,
+  }) {
+    return Container(
+      padding: const EdgeInsets.all(18),
+      decoration: BoxDecoration(
+        color: AppColors.card,
+        borderRadius: BorderRadius.circular(AppTheme.radiusLg),
+        border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.cardShadow,
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: AppColors.primary),
+              const SizedBox(width: 8),
+              Text(
+                title,
+                style: const TextStyle(
+                  fontSize: 15,
+                  fontWeight: FontWeight.w800,
+                  color: AppColors.textPrimary,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          ...children,
+        ],
+      ),
+    );
+  }
+
   Widget _specialtyPicker(List<Specialty> specialties) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Specialty *',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
         const SizedBox(height: 8),
         Container(
-          padding: const EdgeInsets.symmetric(horizontal: 14),
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 2),
           decoration: BoxDecoration(
             color: AppColors.white,
             borderRadius: BorderRadius.circular(AppTheme.radiusMd),
@@ -272,13 +447,14 @@ class _DoctorEditScreenState extends State<DoctorEditScreen> {
             child: DropdownButton<String>(
               isExpanded: true,
               value: _input.specialtyId.isEmpty ? null : _input.specialtyId,
+              icon: const Icon(Icons.keyboard_arrow_down_rounded, color: AppColors.textTertiary),
               hint: Text(specialties.isEmpty
                   ? 'Loading specialties…'
                   : 'Choose a specialty'),
               items: specialties
                   .map((s) => DropdownMenuItem(
                         value: s.id,
-                        child: Text(s.name),
+                        child: Text(s.name, style: const TextStyle(fontWeight: FontWeight.w600)),
                       ))
                   .toList(),
               onChanged: (id) {
@@ -301,7 +477,7 @@ class _DoctorEditScreenState extends State<DoctorEditScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Consultation hours',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
         const SizedBox(height: 8),
         Row(
           children: [
@@ -336,7 +512,7 @@ class _DoctorEditScreenState extends State<DoctorEditScreen> {
         }
       },
       child: Container(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 16),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 14),
         decoration: BoxDecoration(
           color: AppColors.white,
           borderRadius: BorderRadius.circular(AppTheme.radiusMd),
@@ -345,14 +521,14 @@ class _DoctorEditScreenState extends State<DoctorEditScreen> {
         child: Row(
           children: [
             const Icon(Icons.schedule_rounded,
-                size: 20, color: AppColors.textTertiary),
-            const SizedBox(width: 12),
+                size: 18, color: AppColors.textTertiary),
+            const SizedBox(width: 8),
             Text('$label  ',
                 style: const TextStyle(
-                    fontSize: 13, color: AppColors.textTertiary)),
+                    fontSize: 13, color: AppColors.textSecondary, fontWeight: FontWeight.w500)),
             Text(value,
                 style: const TextStyle(
-                    fontSize: 15, fontWeight: FontWeight.w600)),
+                    fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.textPrimary)),
           ],
         ),
       ),
@@ -364,16 +540,27 @@ class _DoctorEditScreenState extends State<DoctorEditScreen> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text('Available days',
-            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600)),
+            style: TextStyle(fontSize: 14, fontWeight: FontWeight.w600, color: AppColors.textPrimary)),
         const SizedBox(height: 8),
         Wrap(
           spacing: 8,
           runSpacing: 8,
           children: _weekdays.map((d) {
             final sel = _input.availableDays.contains(d);
-            return FilterChip(
+            return ChoiceChip(
               label: Text(d),
               selected: sel,
+              selectedColor: AppColors.primary,
+              backgroundColor: AppColors.mint,
+              labelStyle: TextStyle(
+                color: sel ? AppColors.white : AppColors.primary,
+                fontWeight: FontWeight.w700,
+                fontSize: 12.5,
+              ),
+              side: BorderSide.none,
+              shape: RoundedRectangleBorder(
+                borderRadius: BorderRadius.circular(20),
+              ),
               onSelected: (on) => setState(() {
                 if (on) {
                   _input.availableDays.add(d);

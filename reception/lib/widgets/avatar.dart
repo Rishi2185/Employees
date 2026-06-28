@@ -4,12 +4,13 @@ import '../theme/app_colors.dart';
 
 /// A circular avatar that loads a network image and gracefully falls back to
 /// the person's initials on a tinted background — so it always renders, even
-/// fully offline.
+/// fully offline. Features a gradient ring for depth.
 class Avatar extends StatelessWidget {
   final String? imageUrl;
   final String name;
   final double size;
   final Color? background;
+  final bool showRing;
 
   const Avatar({
     super.key,
@@ -17,6 +18,7 @@ class Avatar extends StatelessWidget {
     this.imageUrl,
     this.size = 56,
     this.background,
+    this.showRing = true,
   });
 
   String get _initials {
@@ -30,6 +32,36 @@ class Avatar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final inner = _buildInner();
+    if (!showRing) return inner;
+
+    return Container(
+      width: size + 4,
+      height: size + 4,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            AppColors.primaryBright.withValues(alpha: 0.40),
+            AppColors.primary.withValues(alpha: 0.15),
+          ],
+        ),
+        boxShadow: [
+          BoxShadow(
+            color: AppColors.primary.withValues(alpha: 0.08),
+            blurRadius: 12,
+            offset: const Offset(0, 4),
+          ),
+        ],
+      ),
+      padding: const EdgeInsets.all(2),
+      child: inner,
+    );
+  }
+
+  Widget _buildInner() {
     final fallback = _InitialsCircle(
       initials: _initials,
       size: size,
@@ -53,7 +85,7 @@ class Avatar extends StatelessWidget {
             shimmer: true,
           );
         },
-        errorBuilder: (_, __, ___) => fallback,
+        errorBuilder: (_, _, _) => fallback,
       ),
     );
   }
@@ -80,7 +112,14 @@ class _InitialsCircle extends StatelessWidget {
       alignment: Alignment.center,
       decoration: BoxDecoration(
         shape: BoxShape.circle,
-        color: background ?? AppColors.mint,
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            background ?? AppColors.mint,
+            (background ?? AppColors.mint).withValues(alpha: 0.7),
+          ],
+        ),
       ),
       child: shimmer
           ? SizedBox(

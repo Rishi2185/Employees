@@ -11,6 +11,7 @@ import '../widgets/empty_state.dart';
 import '../widgets/fade_in.dart';
 import '../widgets/screen_scaffold.dart';
 import '../widgets/stat_card.dart';
+import '../widgets/animated_counter.dart';
 import '../state/dashboard_provider.dart';
 
 /// The reception dashboard: today's tiles + a doctor-wise breakdown.
@@ -67,13 +68,26 @@ class _DashboardScreenState extends State<DashboardScreen> {
               children: [
                 _Tiles(dash: dash),
                 const SizedBox(height: 28),
-                Text('Doctor-wise today',
-                    style: Theme.of(context)
-                        .textTheme
-                        .titleLarge
-                        ?.copyWith(fontSize: 18)),
-                const SizedBox(height: 14),
-                _DoctorBreakdown(stats: dash.doctorStats, loading: dash.loading),
+                Row(
+                  children: [
+                    const Icon(Icons.analytics_outlined, size: 20, color: AppColors.primary),
+                    const SizedBox(width: 8),
+                    Text(
+                      'Doctor-wise status',
+                      style: Theme.of(context).textTheme.titleLarge?.copyWith(
+                            fontSize: 17.5,
+                            fontWeight: FontWeight.w800,
+                            letterSpacing: -0.3,
+                          ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 12),
+                FadeIn(
+                  delay: const Duration(milliseconds: 200),
+                  scaleFrom: 0.98,
+                  child: _DoctorBreakdown(stats: dash.doctorStats, loading: dash.loading),
+                ),
               ],
             ),
     );
@@ -94,7 +108,7 @@ class _Tiles extends StatelessWidget {
         accent: AppColors.primary,
       ),
       StatCard(
-        label: "Today's Appointments",
+        label: "Today's Appts",
         value: '${dash.todaysAppointments}',
         icon: Icons.event_available_rounded,
         accent: AppColors.info,
@@ -142,7 +156,12 @@ class _Tiles extends StatelessWidget {
             for (var i = 0; i < tiles.length; i++)
               SizedBox(
                 width: itemWidth,
-                child: FadeIn(delay: Duration(milliseconds: i * 60), child: tiles[i]),
+                height: 115,
+                child: FadeIn(
+                  delay: Duration(milliseconds: 50 + i * 40),
+                  scaleFrom: 0.95,
+                  child: tiles[i],
+                ),
               ),
           ],
         );
@@ -160,16 +179,21 @@ class _DoctorBreakdown extends StatelessWidget {
   Widget build(BuildContext context) {
     if (stats.isEmpty) {
       return Container(
-        padding: const EdgeInsets.all(28),
+        padding: const EdgeInsets.symmetric(vertical: 36, horizontal: 20),
         decoration: BoxDecoration(
           color: AppColors.card,
           borderRadius: BorderRadius.circular(AppTheme.radiusLg),
           border: Border.all(color: AppColors.border),
+          boxShadow: AppColors.cardShadow,
         ),
         child: Center(
           child: Text(
-            loading ? 'Loading…' : 'No appointments yet today.',
-            style: const TextStyle(color: AppColors.textSecondary),
+            loading ? 'Fetching doctor statistics…' : 'No appointments scheduled today.',
+            style: const TextStyle(
+              color: AppColors.textSecondary,
+              fontWeight: FontWeight.w500,
+              fontSize: 14.5,
+            ),
           ),
         ),
       );
@@ -183,6 +207,7 @@ class _DoctorBreakdown extends StatelessWidget {
         color: AppColors.card,
         borderRadius: BorderRadius.circular(AppTheme.radiusLg),
         border: Border.all(color: AppColors.border),
+        boxShadow: AppColors.cardShadow,
       ),
       child: Column(
         children: [
@@ -196,61 +221,101 @@ class _DoctorBreakdown extends StatelessWidget {
   }
 }
 
-class _DoctorRow extends StatelessWidget {
+class _DoctorRow extends StatefulWidget {
   final DoctorStat stat;
   final int maxTotal;
   const _DoctorRow({required this.stat, required this.maxTotal});
 
   @override
+  State<_DoctorRow> createState() => _DoctorRowState();
+}
+
+class _DoctorRowState extends State<_DoctorRow> {
+  bool _hovered = false;
+
+  @override
   Widget build(BuildContext context) {
-    final ratio = (stat.total / maxTotal).clamp(0.0, 1.0);
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-      child: Row(
-        children: [
-          Avatar(name: stat.doctorName, size: 40),
-          const SizedBox(width: 14),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(stat.doctorName,
+    final ratio = (widget.stat.total / widget.maxTotal).clamp(0.0, 1.0);
+    return MouseRegion(
+      onEnter: (_) => setState(() => _hovered = true),
+      onExit: (_) => setState(() => _hovered = false),
+      child: AnimatedContainer(
+        duration: AppTheme.fast,
+        color: _hovered ? AppColors.primary.withValues(alpha: 0.02) : Colors.transparent,
+        padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
+        child: Row(
+          children: [
+            Avatar(name: widget.stat.doctorName, size: 42),
+            const SizedBox(width: 14),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    widget.stat.doctorName,
                     style: const TextStyle(
-                        fontSize: 14.5, fontWeight: FontWeight.w600)),
-                const SizedBox(height: 8),
-                ClipRRect(
-                  borderRadius: BorderRadius.circular(6),
-                  child: LinearProgressIndicator(
-                    value: ratio,
-                    minHeight: 6,
-                    backgroundColor: AppColors.mint,
-                    valueColor: const AlwaysStoppedAnimation(AppColors.primary),
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                      color: AppColors.textPrimary,
+                    ),
                   ),
-                ),
-              ],
+                  const SizedBox(height: 8),
+                  // Progress indicator with smooth transition
+                  TweenAnimationBuilder<double>(
+                    tween: Tween<double>(begin: 0.0, end: ratio),
+                    duration: const Duration(milliseconds: 900),
+                    curve: Curves.easeOutCubic,
+                    builder: (context, val, _) {
+                      return ClipRRect(
+                        borderRadius: BorderRadius.circular(6),
+                        child: LinearProgressIndicator(
+                          value: val.isNaN ? 0.0 : val,
+                          minHeight: 6,
+                          backgroundColor: AppColors.mint,
+                          valueColor: const AlwaysStoppedAnimation<Color>(AppColors.primary),
+                        ),
+                      );
+                    },
+                  ),
+                ],
+              ),
             ),
-          ),
-          const SizedBox(width: 18),
-          _miniStat('${stat.completed}', 'done', AppColors.success),
-          const SizedBox(width: 16),
-          _miniStat('${stat.pending}', 'pending', AppColors.warning),
-          const SizedBox(width: 16),
-          _miniStat('${stat.total}', 'total', AppColors.textSecondary),
-        ],
+            const SizedBox(width: 24),
+            _miniStat(widget.stat.completed, 'done', AppColors.success),
+            const SizedBox(width: 18),
+            _miniStat(widget.stat.pending, 'pending', AppColors.warning),
+            const SizedBox(width: 18),
+            _miniStat(widget.stat.total, 'total', AppColors.primary),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _miniStat(String value, String label, Color color) {
-    return Column(
-      children: [
-        Text(value,
+  Widget _miniStat(int value, String label, Color color) {
+    return SizedBox(
+      width: 56,
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          AnimatedCounter(
+            value: value,
             style: TextStyle(
-                fontSize: 16, fontWeight: FontWeight.w700, color: color)),
-        Text(label,
+              fontSize: 16,
+              fontWeight: FontWeight.w800,
+              color: color,
+            ),
+          ),
+          Text(
+            label,
             style: const TextStyle(
-                fontSize: 11, color: AppColors.textTertiary)),
-      ],
+              fontSize: 10.5,
+              fontWeight: FontWeight.w600,
+              color: AppColors.textTertiary,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
