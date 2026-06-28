@@ -1,6 +1,12 @@
 'use strict';
 
-require('dotenv').config();
+const path = require('path');
+
+// Load .env from the backend root explicitly, NOT from process.cwd(). Under pm2
+// the process is often launched from a parent dir (e.g. ~/Employees), so a
+// bare dotenv.config() would look for ~/Employees/.env and silently find
+// nothing — leaving IMAGEKIT_* (and everything else) blank at runtime.
+require('dotenv').config({ path: path.resolve(__dirname, '../../.env') });
 
 /** Parse a comma-separated origins list; '*' means allow all. */
 function parseOrigins(raw) {

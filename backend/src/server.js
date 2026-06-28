@@ -30,6 +30,13 @@ async function start() {
   const server = app.listen(env.port, () => {
     console.log(`[server] Aarvy hospital API listening on http://localhost:${env.port}`);
     console.log(`[server] env=${env.nodeEnv}  clinicTz=${env.clinicTz}`);
+
+    const { publicKey, privateKey, urlEndpoint } = env.imagekit;
+    if (publicKey && privateKey && urlEndpoint) {
+      console.log('[server] ImageKit: Configured and ready');
+    } else {
+      console.warn('[server] ImageKit: WARNING - Credentials not configured. Doctor photo uploads will fail.');
+    }
   });
 
   const shutdown = async (signal) => {

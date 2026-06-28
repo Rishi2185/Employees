@@ -30,7 +30,10 @@ function ik() {
 router.get('/auth', requireAuth, requireRole(ROLES.ADMIN), (_req, res, next) => {
   try {
     const params = ik().getAuthenticationParameters();
-    res.json(params);
+    res.json({
+      ...params,
+      publicKey: env.imagekit.publicKey,
+    });
   } catch (err) {
     next(err);
   }

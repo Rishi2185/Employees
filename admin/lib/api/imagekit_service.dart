@@ -15,11 +15,6 @@ import 'api_client.dart';
 class ImageKitService {
   final ApiClient _client;
 
-  /// Your ImageKit public key — safe to embed in the client.
-  /// This is NOT a secret; it is only used to identify your account during
-  /// client-side uploads. The private key stays on the server.
-  static const String _publicKey = 'your_imagekit_public_key';
-
   static const String _uploadUrl =
       'https://upload.imagekit.io/api/v1/files/upload';
 
@@ -43,7 +38,7 @@ class ImageKitService {
     // 2. Build the multipart upload request to ImageKit.
     final request = http.MultipartRequest('POST', Uri.parse(_uploadUrl));
 
-    request.fields['publicKey'] = _publicKey;
+    request.fields['publicKey'] = auth['publicKey'] as String;
     request.fields['signature'] = auth['signature'] as String;
     request.fields['token'] = auth['token'] as String;
     request.fields['expire'] = auth['expire'].toString();
