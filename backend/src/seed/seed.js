@@ -2,7 +2,7 @@
 
 const env = require('../config/env');
 const { connect, disconnect } = require('../config/db');
-const { dayKey, todayKey } = require('../utils/dayKey');
+const { todayKey } = require('../utils/dayKey');
 
 const User = require('../models/User');
 const Specialty = require('../models/Specialty');
@@ -11,35 +11,16 @@ const Doctor = require('../models/Doctor');
 const Appointment = require('../models/Appointment');
 const DailySummary = require('../models/DailySummary');
 
-const { specialties, hospitals, doctors } = require('./data');
-const { APPOINTMENT_STATUS, PAYMENT_METHOD, APPOINTMENT_SOURCE } = require('../constants');
-
-// Build a Date for a given day offset at a UTC hour chosen to land in daytime
-// for the default clinic TZ (Asia/Kolkata, UTC+5:30). dayKey is derived from the
-// resulting instant so the stored day is always internally consistent.
-function at(dayOffset, utcHour, utcMin = 0) {
-  const d = new Date();
-  d.setUTCDate(d.getUTCDate() + dayOffset);
-  d.setUTCHours(utcHour, utcMin, 0, 0);
-  return d;
-}
-
-function appt(partial) {
-  return {
-    fee: 500,
-    paymentMethod: PAYMENT_METHOD.UPI,
-    status: APPOINTMENT_STATUS.UPCOMING,
-    reviewed: false,
-    source: APPOINTMENT_SOURCE.PATIENT_APP,
-    checkedIn: false,
-    dayKey: dayKey(partial.dateTime),
-    ...partial,
-  };
-}
+const { specialties, hospitals } = require('./data');
 
 /**
  * Seed the database. Assumes a live Mongoose connection (caller owns it).
  * Clears the relevant collections first so it is safe to re-run.
+ *
+ * Note: doctors are NOT seeded — the roster is managed from the admin app via
+ * the doctor CRUD endpoints and written to the shared `doctors` collection.
+ * Appointments and daily summaries reference doctors, so they are not seeded
+ * either; they accrue at runtime once real doctors exist.
  */
 async function seedDatabase({ log = () => {} } = {}) {
   log('clearing collections...');
@@ -52,10 +33,9 @@ async function seedDatabase({ log = () => {} } = {}) {
     DailySummary.deleteMany({}),
   ]);
 
-  log('inserting specialties, hospitals, doctors...');
+  log('inserting specialties, hospitals...');
   await Specialty.insertMany(specialties);
   await Hospital.insertMany(hospitals);
-  await Doctor.insertMany(doctors);
 
   log('creating users (admin + reception)...');
   await User.create([
@@ -73,83 +53,13 @@ async function seedDatabase({ log = () => {} } = {}) {
     },
   ]);
 
-  log('inserting sample appointments (today + future)...');
-  const byId = Object.fromEntries(doctors.map((d) => [d._id, d]));
-  const D = (id) => byId[id];
-  const sample = [
-    appt({
-      doctorId: 'd1', doctorName: D('d1').name, doctorPhotoUrl: D('d1').photoUrl,
-      specialtyName: D('d1').specialtyName, hospitalName: D('d1').hospitalName,
-      dateTime: at(0, 4, 0), slotLabel: '09:30 AM', fee: 849,
-      patientName: 'Asha Menon', patientPhone: '9810011001',
-      status: APPOINTMENT_STATUS.COMPLETED, checkedIn: true,
-    }),
-    appt({
-      doctorId: 'd1', doctorName: D('d1').name, doctorPhotoUrl: D('d1').photoUrl,
-      specialtyName: D('d1').specialtyName, hospitalName: D('d1').hospitalName,
-      dateTime: at(0, 5, 30), slotLabel: '11:00 AM', fee: 849,
-      patientName: 'Rakesh Gupta', patientPhone: '9810022002',
-      source: APPOINTMENT_SOURCE.RECEPTION_WALKIN, tokenNumber: 12,
-    }),
-    appt({
-      doctorId: 'd8', doctorName: D('d8').name, doctorPhotoUrl: D('d8').photoUrl,
-      specialtyName: D('d8').specialtyName, hospitalName: D('d8').hospitalName,
-      dateTime: at(0, 7, 0), slotLabel: '12:30 PM', fee: 449,
-      patientName: 'Fatima Sheikh', patientPhone: '9810033003',
-    }),
-    appt({
-      doctorId: 'd11', doctorName: D('d11').name, doctorPhotoUrl: D('d11').photoUrl,
-      specialtyName: D('d11').specialtyName, hospitalName: D('d11').hospitalName,
-      dateTime: at(0, 9, 0), slotLabel: '02:30 PM', fee: 1049,
-      patientName: 'John Mathew', patientPhone: '9810044004',
-      status: APPOINTMENT_STATUS.CANCELLED,
-    }),
-    appt({
-      doctorId: 'd1', doctorName: D('d1').name, doctorPhotoUrl: D('d1').photoUrl,
-      specialtyName: D('d1').specialtyName, hospitalName: D('d1').hospitalName,
-      dateTime: at(4, 4, 0), slotLabel: '09:30 AM', fee: 849,
-      patientName: 'Neha Verma', patientPhone: '9810055005',
-    }),
-    appt({
-      doctorId: 'd3', doctorName: D('d3').name, doctorPhotoUrl: D('d3').photoUrl,
-      specialtyName: D('d3').specialtyName, hospitalName: D('d3').hospitalName,
-      dateTime: at(4, 5, 30), slotLabel: '11:00 AM', fee: 799,
-      patientName: 'Priyanka Roy', patientPhone: '9810066006',
-    }),
-  ];
-  await Appointment.insertMany(sample);
-
-  log('inserting historical daily summaries (past 3 days)...');
-  const past = [1, 2, 3].map((n) => dayKey(at(-n, 6, 0)));
-  const histDocs = past.map((key, i) => ({
-    _id: key,
-    date: new Date(`${key}T00:00:00.000Z`),
-    overall: {
-      total: 18 + i * 3,
-      completed: 14 + i * 2,
-      cancelled: 2,
-      pending: 0,
-      walkIns: 4 + i,
-      revenue: (14 + i * 2) * 600,
-    },
-    perDoctor: [
-      { doctorId: 'd1', doctorName: D('d1').name, total: 6, completed: 5, cancelled: 1, pending: 0 },
-      { doctorId: 'd8', doctorName: D('d8').name, total: 7 + i, completed: 6 + i, cancelled: 0, pending: 0 },
-      { doctorId: 'd11', doctorName: D('d11').name, total: 5 + i, completed: 3 + i, cancelled: 1, pending: 0 },
-    ],
-    generatedBy: 'seed',
-    version: 1,
-  }));
-  await DailySummary.insertMany(histDocs);
-
   return {
     specialties: specialties.length,
     hospitals: hospitals.length,
-    doctors: doctors.length,
-    appointments: sample.length,
-    summaries: histDocs.length,
+    doctors: 0,
+    appointments: 0,
+    summaries: 0,
     today: todayKey(),
-    pastDays: past,
   };
 }
 
@@ -160,9 +70,9 @@ async function runCli() {
   console.log('\n[seed] done.');
   console.log(`  specialties: ${result.specialties}`);
   console.log(`  hospitals:   ${result.hospitals}`);
-  console.log(`  doctors:     ${result.doctors}`);
+  console.log(`  doctors:     ${result.doctors}  (add doctors from the admin app)`);
   console.log(`  appointments:${result.appointments}  (today=${result.today})`);
-  console.log(`  summaries:   ${result.summaries}  (${result.pastDays.join(', ')})`);
+  console.log(`  summaries:   ${result.summaries}`);
   console.log('\n  Login:');
   console.log(`    admin     -> ${env.seed.adminUser} / ${env.seed.adminPass}`);
   console.log(`    reception -> ${env.seed.receptionUser} / ${env.seed.receptionPass}`);
