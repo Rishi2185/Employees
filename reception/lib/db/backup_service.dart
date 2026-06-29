@@ -81,6 +81,65 @@ class BackupService {
     return buf.toString();
   }
 
+  // ---- Day register (the receptionist's daily sheet) -----------------------
+
+  /// The columns of the per-day register CSV written during end-of-day. Order
+  /// matches the receptionist's expected sheet.
+  static const List<String> dayRegisterHeaders = [
+    'S.No',
+    'Patient Name',
+    'Blood Group',
+    'Patient Phone',
+    'Doctor Name',
+    'Payment Method',
+    'Payment Status',
+    'Appointment Status',
+  ];
+
+  /// "Paid" when the payment is settled, otherwise "Not paid" (blank if the
+  /// field was never set).
+  String _paymentStatusLabel(ReceptionAppointment a) {
+    final s = (a.paymentStatus ?? '').toLowerCase();
+    if (s.isEmpty) return '';
+    if (s == 'completed' || s == 'paid' || s == 'success') return 'Paid';
+    return 'Not paid';
+  }
+
+  /// Build the day register: one numbered row per appointment, with exactly the
+  /// columns the front desk keeps. Rows are taken in the order supplied (the DAO
+  /// returns them by appointment time).
+  String buildDayRegisterCsv(List<ReceptionAppointment> rows) {
+    final buf = StringBuffer()..writeln(dayRegisterHeaders.join(','));
+    for (var i = 0; i < rows.length; i++) {
+      final a = rows[i];
+      buf.writeln([
+        '${i + 1}',
+        a.patientName ?? '',
+        a.patientBloodGroup ?? '',
+        a.patientPhone ?? '',
+        a.doctorName,
+        StatusUi.paymentLabel(a.paymentMethod),
+        _paymentStatusLabel(a),
+        StatusUi.label(a.status),
+      ].map(_escape).join(','));
+    }
+    return buf.toString();
+  }
+
+  /// Write one day's register CSV into [folderPath] using a derived filename
+  /// (`aarvy_archive_<dayKey>.csv`). Reads from the local archive, so it is safe
+  /// to call after the day's records have been archived. Returns the full path
+  /// written and the number of records.
+  Future<({String path, int rows})> exportDayCsvToFolder(
+      String dayKey, String folderPath) async {
+    final rows = await _archive.forDay(dayKey);
+    final dest = p.join(folderPath, suggestedCsvName(dayKey));
+    final file = File(dest);
+    await file.parent.create(recursive: true);
+    await file.writeAsString(buildDayRegisterCsv(rows), flush: true);
+    return (path: dest, rows: rows.length);
+  }
+
   /// Export a single day's archive to [destPath] as CSV. Returns rows written.
   Future<int> exportDayCsv(String dayKey, String destPath) async {
     final rows = await _archive.forDay(dayKey);

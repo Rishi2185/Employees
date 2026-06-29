@@ -19,6 +19,7 @@ class SettingsStore {
   static const _kRetentionDays = 'retentionDays';
   static const _kHospitalName = 'hospitalName';
   static const _kAutoEodPrompt = 'autoEodPrompt';
+  static const _kExportFolder = 'exportFolderPath';
 
   static const String defaultBaseUrl = 'http://3.110.77.2:4000/api';
   static const int defaultRetentionDays = 365;
@@ -60,6 +61,17 @@ class SettingsStore {
   bool get autoEodPrompt => _prefs.getBool(_kAutoEodPrompt) ?? true;
   Future<void> setAutoEodPrompt(bool v) =>
       _prefs.setBool(_kAutoEodPrompt, v);
+
+  /// Folder where the per-day register CSV is written during end-of-day. Null
+  /// when unset — EOD still runs, it just skips the CSV write.
+  String? get exportFolderPath => _prefs.getString(_kExportFolder);
+  Future<void> setExportFolderPath(String? v) async {
+    if (v == null || v.trim().isEmpty) {
+      await _prefs.remove(_kExportFolder);
+    } else {
+      await _prefs.setString(_kExportFolder, v.trim());
+    }
+  }
 
   /// Wipe session-related keys on logout (keeps baseUrl / retention).
   Future<void> clearSession() async {

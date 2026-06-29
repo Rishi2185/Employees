@@ -5,6 +5,7 @@ import '../models/day_state.dart';
 import '../services/eod_service.dart';
 import '../state/dashboard_provider.dart';
 import '../state/eod_provider.dart';
+import '../state/services.dart';
 import '../theme/app_colors.dart';
 import '../theme/app_theme.dart';
 import '../utils/day_key.dart';
@@ -40,6 +41,23 @@ class _EodScreenState extends State<EodScreen> {
     }
   }
 
+  Future<void> _exportDay(String dayKey) async {
+    final ok = await context.read<EodProvider>().exportDayCsv(dayKey);
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        behavior: SnackBarBehavior.floating,
+        backgroundColor: ok ? AppColors.primaryDark : AppColors.danger,
+        content: Text(
+          ok
+              ? 'Saved the CSV for $dayKey to your export folder.'
+              : 'Set a Daily CSV Export Folder in Settings first.',
+          style: const TextStyle(fontWeight: FontWeight.w600),
+        ),
+      ),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final eod = context.watch<EodProvider>();
@@ -61,6 +79,8 @@ class _EodScreenState extends State<EodScreen> {
             scaleFrom: 0.98,
             child: _RunCard(eod: eod, onRun: () => eod.runAll()),
           ),
+          const SizedBox(height: 12),
+          const _ExportFolderHint(),
           if (eod.log.isNotEmpty) ...[
             const SizedBox(height: 20),
             FadeIn(
@@ -89,7 +109,7 @@ class _EodScreenState extends State<EodScreen> {
           FadeIn(
             delay: const Duration(milliseconds: 150),
             scaleFrom: 0.98,
-            child: _History(eod: eod),
+            child: _History(eod: eod, onExportDay: _exportDay),
           ),
         ],
       ),
@@ -192,6 +212,52 @@ class _RunCard extends StatelessWidget {
               icon: Icons.play_arrow_rounded,
               loading: eod.isRunning,
               onPressed: (!hasPending || eod.isRunning) ? null : onRun,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+/// A thin status strip under the run card telling the receptionist where the
+/// daily CSV will be written (or that no folder is configured yet).
+class _ExportFolderHint extends StatelessWidget {
+  const _ExportFolderHint();
+
+  @override
+  Widget build(BuildContext context) {
+    final folder = context.watch<Services>().settings.exportFolderPath;
+    final isSet = folder != null && folder.isNotEmpty;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: isSet ? AppColors.mint.withValues(alpha: 0.25) : AppColors.scaffold,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(
+          color: isSet ? AppColors.primary.withValues(alpha: 0.18) : AppColors.border,
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isSet ? Icons.save_alt_rounded : Icons.info_outline_rounded,
+            size: 18,
+            color: isSet ? AppColors.primary : AppColors.textTertiary,
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Text(
+              isSet
+                  ? 'Each processed day is saved as a CSV to: $folder'
+                  : 'No export folder set — open Settings to choose where daily CSVs are saved.',
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: isSet ? AppColors.textPrimary : AppColors.textSecondary,
+              ),
             ),
           ),
         ],
@@ -303,7 +369,8 @@ class _LogPanel extends StatelessWidget {
 
 class _History extends StatelessWidget {
   final EodProvider eod;
-  const _History({required this.eod});
+  final void Function(String dayKey) onExportDay;
+  const _History({required this.eod, required this.onExportDay});
 
   @override
   Widget build(BuildContext context) {
@@ -339,6 +406,7 @@ class _History extends StatelessWidget {
               state: eod.history[i],
               running: eod.isRunning,
               onRetry: () => eod.runDay(eod.history[i].dayKey),
+              onExport: () => onExportDay(eod.history[i].dayKey),
             ),
           ],
         ],
@@ -351,10 +419,12 @@ class _HistoryRow extends StatefulWidget {
   final DayState state;
   final bool running;
   final VoidCallback onRetry;
+  final VoidCallback onExport;
   const _HistoryRow({
     required this.state,
     required this.running,
     required this.onRetry,
+    required this.onExport,
   });
 
   @override
@@ -415,6 +485,13 @@ class _HistoryRowState extends State<_HistoryRow> {
                 onPressed: widget.running ? null : widget.onRetry,
                 icon: const Icon(Icons.refresh_rounded, size: 16),
                 label: const Text('Resume', style: TextStyle(fontWeight: FontWeight.w700)),
+              ),
+            ] else ...[
+              const SizedBox(width: 16),
+              TextButton.icon(
+                onPressed: widget.running ? null : widget.onExport,
+                icon: const Icon(Icons.save_alt_rounded, size: 16),
+                label: const Text('Save CSV', style: TextStyle(fontWeight: FontWeight.w700)),
               ),
             ],
           ],

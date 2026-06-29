@@ -29,6 +29,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
   late final _hospital =
       TextEditingController(text: _services.settings.hospitalName);
   late int _retention = _services.settings.retentionDays;
+  late String? _exportFolder = _services.settings.exportFolderPath;
 
   bool _working = false;
 
@@ -57,6 +58,20 @@ class _SettingsScreenState extends State<SettingsScreen> {
     await _services.settings.setHospitalName(_hospital.text);
     await _services.settings.setRetentionDays(_retention);
     _toast('Settings saved successfully.');
+  }
+
+  Future<void> _chooseExportFolder() async {
+    final dir = await getDirectoryPath();
+    if (dir == null) return;
+    await _services.settings.setExportFolderPath(dir);
+    setState(() => _exportFolder = dir);
+    _toast('Daily export folder set.');
+  }
+
+  Future<void> _clearExportFolder() async {
+    await _services.settings.setExportFolderPath(null);
+    setState(() => _exportFolder = null);
+    _toast('Daily export folder cleared.');
   }
 
   Future<void> _backupDb() async {
@@ -150,6 +165,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
               'Local Archive & Backup Tools',
               Icons.storage_rounded,
               [
+                _exportFolderRow(),
+                const SizedBox(height: 16),
                 _pathRow(),
                 const SizedBox(height: 20),
                 Wrap(
@@ -304,6 +321,70 @@ class _SettingsScreenState extends State<SettingsScreen> {
           ],
         ),
       ],
+    );
+  }
+
+  Widget _exportFolderRow() {
+    final folder = _exportFolder;
+    final isSet = folder != null && folder.isNotEmpty;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+        color: AppColors.scaffold,
+        borderRadius: BorderRadius.circular(AppTheme.radiusMd),
+        border: Border.all(color: AppColors.border),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            isSet ? Icons.folder_special_rounded : Icons.folder_off_outlined,
+            size: 22,
+            color: isSet ? AppColors.primary : AppColors.textTertiary,
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                const Text(
+                  'Daily CSV Export Folder',
+                  style: TextStyle(fontSize: 11.5, fontWeight: FontWeight.w700, color: AppColors.textTertiary),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  isSet ? folder : 'Not set — end-of-day will not save a CSV',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: isSet ? AppColors.textPrimary : AppColors.textSecondary,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          if (isSet)
+            IconButton(
+              tooltip: 'Clear export folder',
+              icon: const Icon(Icons.close_rounded, size: 18),
+              onPressed: _clearExportFolder,
+            ),
+          const SizedBox(width: 4),
+          FilledButton.icon(
+            style: FilledButton.styleFrom(
+              backgroundColor: AppColors.primary,
+              foregroundColor: AppColors.white,
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(AppTheme.radiusSm)),
+            ),
+            onPressed: _chooseExportFolder,
+            icon: const Icon(Icons.drive_folder_upload_rounded, size: 18),
+            label: Text(isSet ? 'Change' : 'Choose folder',
+                style: const TextStyle(fontWeight: FontWeight.w700)),
+          ),
+        ],
+      ),
     );
   }
 

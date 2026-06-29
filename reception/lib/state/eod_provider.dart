@@ -58,6 +58,7 @@ class EodProvider extends ChangeNotifier {
     notifyListeners();
 
     final results = await _services.eod.runEligible(today, report: _onProgress);
+    await _exportProcessed(results);
 
     _history = await _services.dayStates.all();
     _eligible = await _services.eod.eligibleDays(today);
@@ -83,6 +84,7 @@ class EodProvider extends ChangeNotifier {
 
     final result =
         await _services.eod.runDay(dayKey, todayDayKey: today, report: _onProgress);
+    await _exportProcessed([result]);
 
     _history = await _services.dayStates.all();
     _eligible = await _services.eod.eligibleDays(today);
@@ -96,6 +98,56 @@ class EodProvider extends ChangeNotifier {
     _activeDay = p.dayKey;
     _log.add(p);
     notifyListeners();
+  }
+
+  /// After EOD runs, write each archived day's register CSV into the folder
+  /// configured in Settings. Days that never reached the archive stage (e.g. a
+  /// run that failed before archiving) are skipped. A missing folder is a no-op
+  /// with a single note in the log — EOD itself still succeeded.
+  Future<void> _exportProcessed(List<EodDayResult> results) async {
+    final folder = _services.settings.exportFolderPath;
+    if (folder == null || folder.isEmpty) {
+      if (results.any((r) => r.state.stage.reached(EodStage.archived))) {
+        _onProgress(const EodProgress(
+          dayKey: '—',
+          stage: EodStage.archived,
+          message: 'No export folder set in Settings — CSV not written.',
+        ));
+      }
+      return;
+    }
+    for (final r in results) {
+      if (!r.state.stage.reached(EodStage.archived)) continue;
+      await _exportOne(r.dayKey, folder);
+    }
+  }
+
+  Future<void> _exportOne(String dayKey, String folder) async {
+    try {
+      final res = await _services.backup.exportDayCsvToFolder(dayKey, folder);
+      _onProgress(EodProgress(
+        dayKey: dayKey,
+        stage: EodStage.archived,
+        message: 'Saved ${res.rows} record(s) to ${res.path}',
+        archived: res.rows,
+      ));
+    } catch (e) {
+      _onProgress(EodProgress(
+        dayKey: dayKey,
+        stage: EodStage.archived,
+        message: 'CSV export failed: $e',
+        isError: true,
+      ));
+    }
+  }
+
+  /// Re-export a single completed day's register CSV to the configured folder,
+  /// without re-running the EOD ladder. Returns false if no folder is set.
+  Future<bool> exportDayCsv(String dayKey) async {
+    final folder = _services.settings.exportFolderPath;
+    if (folder == null || folder.isEmpty) return false;
+    await _exportOne(dayKey, folder);
+    return true;
   }
 
   void clearLog() {
